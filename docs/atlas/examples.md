@@ -210,7 +210,7 @@ echo '{
       "limit": 10
     }
   }
-}' | npx --yes @smartergpt/lex-mcp@4.2.0
+}' | npx --yes @smartergpt/lex-mcp@4.3.0
 ```
 
 ---

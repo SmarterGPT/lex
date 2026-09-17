@@ -9,11 +9,11 @@ Lex intentionally refused to start the removed frame-mcp.mjs transport.
 Agent action:
   Preserve the existing Lex environment and replace only the MCP command:
   command = "npx"
-  args = ["--yes", "@smartergpt/lex-mcp@4.2.0"]
+  args = ["--yes", "@smartergpt/lex-mcp@4.3.0"]
 
   JSON hosts use:
   "command": "npx",
-  "args": ["--yes", "@smartergpt/lex-mcp@4.2.0"]
+  "args": ["--yes", "@smartergpt/lex-mcp@4.3.0"]
 
   Restart or reload the MCP host after changing its configuration.
 
