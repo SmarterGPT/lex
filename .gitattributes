@@ -1,0 +1,2 @@
+# Projection goldens are exact bytes, including LF, on every checkout platform.
+test/normative-policy/goldens/*.md text eol=lf

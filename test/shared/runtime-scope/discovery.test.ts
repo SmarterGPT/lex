@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, test } from "node:test";
@@ -20,12 +20,14 @@ const NOW = "2026-07-18T12:00:00.000Z";
 
 describe("production runtime-scope discovery", () => {
   test("combines native repository evidence with separately trusted selection", async () => {
-    const root = mkdtempSync(join(tmpdir(), "lex-discovery-"));
+    const root = realpathSync.native(mkdtempSync(join(tmpdir(), "lex-discovery-")));
     const repository = join(root, "repo");
     const nested = join(repository, "src", "nested");
     const commonDirectory = join(repository, ".git-real");
     mkdirSync(nested, { recursive: true });
     mkdirSync(commonDirectory, { recursive: true });
+    const callerAlias = join(root, "caller-alias");
+    symlinkSync(nested, callerAlias, process.platform === "win32" ? "junction" : "dir");
     writeFileSync(
       join(repository, REPOSITORY_DECLARATION_FILE),
       JSON.stringify({
@@ -67,7 +69,7 @@ describe("production runtime-scope discovery", () => {
     try {
       const bootstrap = captureTrustedBootstrapInput({
         argv: ["node", "lex", "recall"],
-        cwd: nested,
+        cwd: callerAlias,
         environment: { HOME: root },
         platform: process.platform,
         installationRef: process.execPath,
