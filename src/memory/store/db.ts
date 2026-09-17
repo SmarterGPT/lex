@@ -37,20 +37,9 @@ export const FRAME_STORE_SCHEMA_VERSION = "1.0.1";
 /** Latest SQLite migration applied by initializeDatabase(). */
 export const DATABASE_SCHEMA_VERSION = SQLITE_SCHEMA_VERSION;
 
-export type ReadOnlyDatabaseErrorCode =
-  "STORE_NOT_FOUND" | "STORE_REQUIRES_MIGRATION" | "STORE_INCOMPATIBLE" | "STORE_UNAVAILABLE";
-
-/** Stable failure returned when a database cannot be opened safely for bootstrap reads. */
-export class ReadOnlyDatabaseError extends Error {
-  constructor(
-    public readonly code: ReadOnlyDatabaseErrorCode,
-    message: string,
-    public readonly currentVersion?: number
-  ) {
-    super(message);
-    this.name = "ReadOnlyDatabaseError";
-  }
-}
+import { ReadOnlyDatabaseError } from "./read-only-error.js";
+export { ReadOnlyDatabaseError } from "./read-only-error.js";
+export type { ReadOnlyDatabaseErrorCode } from "./read-only-error.js";
 
 export interface FrameRow {
   id: string;

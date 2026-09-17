@@ -8,13 +8,8 @@ import { existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import type { CallerProvenance, Frame } from "../types/frame-schema.js";
 import type { FrameStore } from "../../memory/store/frame-store.js";
-import {
-  createFrameStore,
-  PostgresFrameStore,
-  resolveFrameStoreBackend,
-} from "../../memory/store/index.js";
-import { SqliteFrameStore } from "../../memory/store/sqlite/index.js";
-import { ReadOnlyDatabaseError } from "../../memory/store/db.js";
+import { resolveFrameStoreBackend } from "../../memory/store/backend.js";
+import { ReadOnlyDatabaseError } from "../../memory/store/read-only-error.js";
 import { normalizeSearchTerms } from "../../memory/store/search-utils.js";
 import {
   resolveConfigResolution,
@@ -27,7 +22,6 @@ import {
   type StoreCandidate,
 } from "../config/store-identity.js";
 import { loadPolicy, resolvePolicyPath } from "../policy/loader.js";
-import { json, raw } from "./output.js";
 import { buildFrameWriteContract } from "./frame-write-contract.js";
 import type { Policy } from "../types/policy.js";
 
@@ -431,7 +425,8 @@ export async function buildSessionContext(
     try {
       backend = resolveFrameStoreBackend();
       if (backend === "postgres") {
-        store = createFrameStore(undefined, { accessMode: "read-only" });
+        const { PostgresFrameStore } = await import("../../memory/store/postgres/frame-store.js");
+        store = new PostgresFrameStore(process.env.LEX_DATABASE_URL, { accessMode: "read-only" });
         ownsStore = true;
       }
     } catch (error) {
@@ -449,14 +444,16 @@ export async function buildSessionContext(
       : configResolution.pathSources.database;
   const storeExists =
     storeResolutionError === undefined && (store !== undefined || existsSync(selectedStorePath));
-  const storeAccessMode: ContextStoreAccessMode =
-    store instanceof SqliteFrameStore
-      ? store.accessMode
-      : store instanceof PostgresFrameStore
-        ? store.accessMode
-        : store
-          ? "injected"
-          : "read-only";
+  let storeAccessMode: ContextStoreAccessMode = store ? "injected" : "read-only";
+  // Import only the selected driver; preserve class-based access-mode reporting for
+  // compatibility stores without loading the general store/behavioral barrels.
+  if (store && backend === "sqlite") {
+    const { SqliteFrameStore } = await import("../../memory/store/sqlite/frame-store.js");
+    if (store instanceof SqliteFrameStore) storeAccessMode = store.accessMode;
+  } else if (store && backend === "postgres") {
+    const { PostgresFrameStore } = await import("../../memory/store/postgres/frame-store.js");
+    if (store instanceof PostgresFrameStore) storeAccessMode = store.accessMode;
+  }
   const storeIdentity =
     backend === "sqlite"
       ? resolveStoreIdentity(selectedStorePath, storeSource, projectRoot)
@@ -529,7 +526,8 @@ export async function buildSessionContext(
   } else {
     try {
       if (!store) {
-        store = createFrameStore(selectedStorePath, { accessMode: "read-only" });
+        const { SqliteFrameStore } = await import("../../memory/store/sqlite/frame-store.js");
+        store = new SqliteFrameStore(selectedStorePath, { accessMode: "read-only" });
         ownsStore = true;
       }
       const candidateLimit = Math.min(MAX_CANDIDATES, Math.max(requestedLimit * 10, 50));
@@ -672,6 +670,7 @@ export async function context(
 ): Promise<void> {
   try {
     const result = await buildSessionContext(options, injectedStore);
+    const { json, raw } = await import("./output.js");
     if (options.json) json(result);
     else raw(renderSessionContextText(result));
   } catch (error) {

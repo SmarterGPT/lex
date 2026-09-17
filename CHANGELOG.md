@@ -1,5 +1,21 @@
 # Changelog
 
+## 4.4.0
+
+### Minor Changes
+
+- Expose `@smartergpt/lex/context` for canonical bounded session context without
+  loading the general CLI/MCP or unselected database backends. Preserve ranking,
+  provenance, read-only failures, scope-bound injected stores and output budgets.
+
+### Patch Changes
+
+- MCP help advertises canonical tool names, resolves existing deprecated aliases,
+  and covers every shipped tool. Help responses identify the canonical name.
+
+No installed scoped-runtime change or end-to-end startup speedup is implied.
+See [migration and recovery](docs/releases/lex-4.4-migration.md).
+
 ## 4.3.0
 
 See the [4.3 migration and recovery guide](docs/releases/lex-4.3-migration.md).

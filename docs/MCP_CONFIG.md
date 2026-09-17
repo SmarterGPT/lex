@@ -10,7 +10,7 @@ Create `.vscode/mcp.json` in your project:
     "lex": {
       "type": "stdio",
       "command": "npx",
-      "args": ["--yes", "@smartergpt/lex-mcp@4.3.0"],
+      "args": ["--yes", "@smartergpt/lex-mcp@4.4.0"],
       "env": {
         "LEX_WORKSPACE_ROOT": "${workspaceFolder}",
         "LEX_STORE": "sqlite"
@@ -29,7 +29,7 @@ Add to `~/.config/Claude/claude_desktop_config.json` (Linux) or `~/Library/Appli
   "mcpServers": {
     "lex": {
       "command": "npx",
-      "args": ["--yes", "@smartergpt/lex-mcp@4.3.0"],
+      "args": ["--yes", "@smartergpt/lex-mcp@4.4.0"],
       "env": {
         "LEX_WORKSPACE_ROOT": "/path/to/your/project",
         "LEX_STORE": "sqlite"
@@ -49,7 +49,7 @@ When several repositories should share continuity, configure every Lex launch pa
     "lex": {
       "type": "stdio",
       "command": "npx",
-      "args": ["--yes", "@smartergpt/lex-mcp@4.3.0"],
+      "args": ["--yes", "@smartergpt/lex-mcp@4.4.0"],
       "env": {
         "LEX_WORKSPACE_ROOT": "D:\\dev\\stfc-mod",
         "LEX_STORE": "sqlite",
@@ -83,7 +83,7 @@ a tracked configuration. For Codex TOML:
 ```toml
 [mcp_servers.lex]
 command = "npx"
-args = ["--yes", "@smartergpt/lex-mcp@4.3.0"]
+args = ["--yes", "@smartergpt/lex-mcp@4.4.0"]
 env_vars = ["LEX_POSTGRES_PASSWORD"]
 
 [mcp_servers.lex.env]
@@ -132,7 +132,7 @@ command:
 
 ```toml
 command = "npx"
-args = ["--yes", "@smartergpt/lex-mcp@4.3.0"]
+args = ["--yes", "@smartergpt/lex-mcp@4.4.0"]
 ```
 
 For JSON-based hosts:
@@ -140,7 +140,7 @@ For JSON-based hosts:
 ```json
 {
   "command": "npx",
-  "args": ["--yes", "@smartergpt/lex-mcp@4.3.0"]
+  "args": ["--yes", "@smartergpt/lex-mcp@4.4.0"]
 }
 ```
 
@@ -189,5 +189,5 @@ Legacy compatibility names are classified in the
 
 ```bash
 # Test the MCP server directly
-echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | npx --yes @smartergpt/lex-mcp@4.3.0
+echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | npx --yes @smartergpt/lex-mcp@4.4.0
 ```

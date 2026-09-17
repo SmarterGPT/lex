@@ -2664,7 +2664,7 @@ export class MCPServer {
    */
   private async handleHelp(args: Record<string, unknown>, trusted = false): Promise<MCPResponse> {
     const {
-      tool,
+      tool: requestedTool,
       examples = true,
       format = "full",
     } = args as {
@@ -2672,6 +2672,11 @@ export class MCPServer {
       examples?: boolean;
       format?: string;
     };
+
+    const tool =
+      requestedTool && Object.hasOwn(MCP_TOOL_ALIASES, requestedTool)
+        ? MCP_TOOL_ALIASES[requestedTool as keyof typeof MCP_TOOL_ALIASES]
+        : requestedTool;
 
     // Define tool help data (using standardized names per ADR-0009)
     const toolHelp: Record<
@@ -3048,6 +3053,21 @@ export class MCPServer {
       },
     };
 
+    for (const definition of MCP_TOOLS) {
+      if (Object.hasOwn(toolHelp, definition.name)) continue;
+      const requiredFields = definition.inputSchema.required ?? [];
+      toolHelp[definition.name] = {
+        description: definition.description,
+        requiredFields,
+        optionalFields: Object.keys(definition.inputSchema.properties).filter(
+          (field) => !requiredFields.includes(field)
+        ),
+        examples: [{ description: "Use default options", input: {} }],
+        relatedTools: ["help"],
+        workflows: [],
+      };
+    }
+
     // Define workflow descriptions (updated tool names)
     const workflows: Record<
       string,
@@ -3125,7 +3145,7 @@ export class MCPServer {
     // Build response based on requested tool
     if (tool) {
       // Get help for a specific tool
-      const helpData = toolHelp[tool];
+      const helpData = Object.hasOwn(toolHelp, tool) ? toolHelp[tool] : undefined;
       if (!helpData) {
         throw new MCPError(MCPErrorCode.VALIDATION_INVALID_FORMAT, `Unknown tool: ${tool}`, {
           requestedTool: tool,

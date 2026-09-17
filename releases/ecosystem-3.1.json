@@ -30,7 +30,7 @@
         "registry": "https://registry.npmjs.org",
         "access": "public",
         "baselineVersion": "3.0.1",
-        "targetVersion": "4.3.0",
+        "targetVersion": "4.4.0",
         "publishedVersion": "3.0.1",
         "integrity": "sha512-iHjxhYIHSva9CSgG4Cdn0DDR9TH60LCMrSsJ0ueqYi20IZT9env2852UBcf57qjTvDGHfKXRThgYzYVtUdDMzw=="
       },
@@ -57,7 +57,7 @@
         "registry": "https://registry.npmjs.org",
         "access": "public",
         "baselineVersion": "3.0.1",
-        "targetVersion": "4.3.0",
+        "targetVersion": "4.4.0",
         "publishedVersion": "3.0.1",
         "integrity": "sha512-jz+t3O8ru7ZPZ5n7hKt8rxlbUc8F7Zr7FBoMy9t+qXgw78ieFBC+Hx5D0UtxKC+tb57nIrDHfD1yDsoHEGoERA=="
       },
