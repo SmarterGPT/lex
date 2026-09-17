@@ -5,6 +5,9 @@ import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import { createHash } from "node:crypto";
 import { MemoryFrameStore } from "@app/memory/store/memory/index.js";
+import { MemoryScopedFrameStoreBackend } from "@app/memory/store/memory/scoped-frame-store.js";
+import { scopedFrameStoreAsLegacyView } from "@app/memory/store/scoped-frame-store.js";
+import type { AuthorizedScopeV1 } from "@app/shared/runtime-scope/contracts.js";
 import { SqliteFrameStore } from "@app/memory/store/sqlite/index.js";
 import { DATABASE_SCHEMA_VERSION } from "@app/memory/store/db.js";
 import type { Frame } from "@app/shared/types/frame-schema.js";
@@ -12,6 +15,66 @@ import { buildSessionContext, renderSessionContextText } from "@app/shared/cli/c
 
 const originalStoreBackend = process.env.LEX_STORE;
 const originalDatabaseUrl = process.env.LEX_DATABASE_URL;
+
+test("narrow context preserves bound workspace isolation and denied/expired read failures", async () => {
+  const { buildSessionContext: build } = await import("@app/shared/cli/session-context.js");
+  const backend = new MemoryScopedFrameStoreBackend({
+    now: () => new Date("2026-09-17T00:00:00Z"),
+  });
+  const scope = (
+    workspace: string,
+    capabilities: string[],
+    expiresAt?: string
+  ): AuthorizedScopeV1 => ({
+    schemaVersion: 1,
+    grantId: "grant" as never,
+    tenantId: "tenant" as never,
+    workspaceId: workspace as never,
+    principalId: "principal" as never,
+    capabilities: capabilities as never,
+    authorityVersion: "v1" as never,
+    scopeVersion: "v1" as never,
+    authorityDigest: "sha256:fixture" as never,
+    verifiedAt: "2026-09-16T00:00:00Z",
+    ...(expiresAt ? { expiresAt } : {}),
+  });
+  const writer = backend.bind(scope("selected", ["frame:read", "frame:write"]));
+  try {
+    await writer.saveFrame(frame("private", "2026-09-16T00:00:00Z", "work", "Selected workspace"));
+    const read = async (selected: AuthorizedScopeV1) => {
+      const view = backend.bind(selected);
+      try {
+        return await build(
+          { branch: "work", json: true, maxTokens: 1600 },
+          scopedFrameStoreAsLegacyView(view)
+        );
+      } finally {
+        await view.close();
+      }
+    };
+    assert.deepEqual(
+      (await read(scope("selected", ["frame:read"]))).frames.map((f) => f.id),
+      ["private"]
+    );
+    assert.equal((await read(scope("other", ["frame:read"]))).frames.length, 0);
+    for (const denied of [scope("selected", [])]) {
+      const result = await read(denied);
+      assert.equal(result.frames.length, 0);
+      assert.ok(result.warnings.some((warning) => warning.code === "STORE_UNAVAILABLE"));
+    }
+    await assert.rejects(read(scope("selected", ["frame:read"], "2026-09-16T23:00:00Z")), {
+      code: "LEX_FRAME_STORE_SCOPE_EXPIRED",
+    });
+    assert.equal(
+      (await writer.getFrameById("private"))?.id,
+      "private",
+      "context never closes its caller's store"
+    );
+  } finally {
+    await writer.close();
+    await backend.close();
+  }
+});
 
 beforeEach(() => {
   process.env.LEX_STORE = "sqlite";

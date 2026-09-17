@@ -11,6 +11,11 @@ export const PUBLIC_EXPORT_CONTRACT = Object.freeze([
     purpose: "Core types, trusted scope, and compatibility store API",
     anchors: ["FRAME_SCHEMA_VERSION", "RUNTIME_SCOPE_CONTRACT_VERSION", "saveFrame"],
   },
+  {
+    subpath: "./context",
+    purpose: "Bounded canonical session context without CLI or MCP startup",
+    anchors: ["buildSessionContext", "renderSessionContextText"],
+  },
   { subpath: "./cli", purpose: "Programmatic CLI construction", anchors: ["createProgram", "run"] },
   {
     subpath: "./cli-output",

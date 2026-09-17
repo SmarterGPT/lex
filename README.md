@@ -115,7 +115,7 @@ Ready to test the claim? Store one non-sensitive checkpoint, start a fresh sessi
 it can continue without having the work explained again.
 
 Requires Node.js 24 or newer. Lex does not impose an unproven upper bound. Existing users should
-follow the [Lex 4.3 migration and recovery guide](docs/releases/lex-4.3-migration.md), including the
+follow the [Lex 4.4 migration and recovery guide](docs/releases/lex-4.4-migration.md), including the
 native SQLite rebuild step.
 
 This approved pilot writes one Frame to the local SQLite store under `.smartergpt/lex/`. It does
@@ -301,19 +301,19 @@ rather than reconstructing them from ambient environment variables.
 
 ## Project status
 
-**Current Version:** `4.3.0`
+**Current Version:** `4.4.0`
 
-Lex 4.3 adds non-authorizing policy projections, explicit operation absence and lifecycle fixes. See the
-[4.3 release notes](./docs/releases/lex-4.3.md) and
-[migration guide](./docs/releases/lex-4.3-migration.md). Candidate metadata is not
-publication evidence; retain verified 4.2.0 runtimes until the exact new pair is verified.
+Lex 4.4 adds a narrow canonical session-context API and repairs MCP help discovery. See the
+[4.4 release notes](./docs/releases/lex-4.4.md) and
+[migration guide](./docs/releases/lex-4.4-migration.md). Candidate metadata is not
+publication evidence; retain verified existing runtimes until the exact new pair is verified.
 
 Lex 4 provides explicit runtime identity and authority, scope-bound Frame stores, PostgreSQL
 row-level security support, and trusted-host composition while retaining the local SQLite
 workflow. Lex 4 requires Node 24 or newer and is released as part of the
 [Ecosystem 3.1 compatibility train](./docs/releases/ecosystem-3.1.md).
 
-See the [Lex 4 migration and recovery guide](./docs/releases/lex-4.3-migration.md), the
+See the [Lex 4 migration and recovery guide](./docs/releases/lex-4.4-migration.md), the
 [changelog](./CHANGELOG.md) for release history, and the
 [Lex 3 PostgreSQL isolation canary](./docs/LEX3_POSTGRES_DOGFOOD.md) for the live end-to-end
 two-tenant/five-workspace acceptance path.

@@ -10,6 +10,8 @@
 
 import { test, describe } from "node:test";
 import assert from "node:assert";
+import { MCP_TOOLS } from "@app/memory/mcp_server/tools.js";
+import { MCP_TOOL_ALIASES } from "@app/shared/runtime-scope/capabilities.js";
 import { MCPServer } from "@app/memory/mcp_server/server.js";
 import { mkdtempSync, rmSync } from "fs";
 import { join } from "path";
@@ -56,6 +58,43 @@ describe("Help MCP Tool (AX #577)", () => {
         await teardown();
       }
     });
+  });
+
+  test("every advertised canonical name and deprecated alias resolves to canonical help", async () => {
+    const srv = setup();
+    try {
+      const description = (
+        MCP_TOOLS.find((t) => t.name === "help")!.inputSchema.properties.tool as {
+          description: string;
+        }
+      ).description;
+      const advertised = description
+        .split("Canonical names: ")[1]
+        .split(". Deprecated aliases are also accepted: ");
+      const names = [...advertised[0].split(", "), ...advertised[1].replace(/\.$/, "").split(", ")];
+      assert.deepEqual(
+        new Set(names),
+        new Set([...MCP_TOOLS.map((t) => t.name), ...Object.keys(MCP_TOOL_ALIASES)])
+      );
+      for (const name of names) {
+        for (const format of ["full", "micro"]) {
+          const response = await srv.handleRequest({
+            method: "tools/call",
+            params: {
+              name: "help",
+              arguments: { tool: name, format },
+            },
+          });
+          assert.ok(!response.isError, `${name}: ${format}`);
+          assert.equal(
+            (response.data as { tool: string }).tool,
+            (MCP_TOOL_ALIASES as Record<string, string>)[name] ?? name
+          );
+        }
+      }
+    } finally {
+      await teardown();
+    }
   });
 
   describe("All tools help", () => {

@@ -1,3 +1,5 @@
+import { CANONICAL_MCP_TOOLS, MCP_TOOL_ALIASES } from "../../shared/runtime-scope/capabilities.js";
+
 /**
  * MCP Tools for Frame Memory
  *
@@ -370,8 +372,7 @@ export const MCP_TOOLS: MCPTool[] = [
       properties: {
         tool: {
           type: "string",
-          description:
-            "Tool name to get help for (optional - returns all tools if omitted). Valid values: remember, validate_remember, recall, get_frame, list_frames, policy_check, timeline, code_atlas, introspect, help",
+          description: `Tool name to get help for (optional - returns all tools if omitted). Canonical names: ${CANONICAL_MCP_TOOLS.join(", ")}. Deprecated aliases are also accepted: ${Object.keys(MCP_TOOL_ALIASES).join(", ")}.`,
         },
         examples: {
           type: "boolean",

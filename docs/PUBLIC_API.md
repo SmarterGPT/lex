@@ -18,6 +18,7 @@ and compiles imports for every declaration path.
 | Import | Purpose |
 |---|---|
 | `@smartergpt/lex` | Core types, trusted scope, and compatibility store API |
+| `@smartergpt/lex/context` | Bounded canonical session context without CLI or MCP startup |
 | `@smartergpt/lex/cli` | Programmatic CLI construction |
 | `@smartergpt/lex/cli-output` | Structured CLI output helpers |
 | `@smartergpt/lex/types` | Shared Frame and policy types and validators |

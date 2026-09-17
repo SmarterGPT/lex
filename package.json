@@ -1,6 +1,6 @@
 {
   "name": "@smartergpt/lex",
-  "version": "4.3.0",
+  "version": "4.4.0",
   "description": "MIT-licensed memory, policy, and continuity framework with MCP server. For local dev and private automation.",
   "type": "module",
   "main": "dist/index.js",
@@ -13,6 +13,10 @@
     "./cli": {
       "types": "./dist/shared/cli/index.d.ts",
       "import": "./dist/shared/cli/index.js"
+    },
+    "./context": {
+      "types": "./dist/shared/cli/session-context.d.ts",
+      "import": "./dist/shared/cli/session-context.js"
     },
     "./cli-output": {
       "types": "./dist/shared/cli/output.d.ts",

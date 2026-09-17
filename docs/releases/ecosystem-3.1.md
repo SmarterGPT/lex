@@ -4,7 +4,7 @@ Ecosystem 3.1 is a compatibility release train across the Lex toolset. It is not
 version. Each repository selects semver from its own reviewed user-visible delta, while the release
 manifest records the exact set proven to work together.
 
-Lex selects package version 4.3.0 for additive non-authorizing policy projections and explicit operation absence. The 4.0 line's Node
+Lex selects package version 4.4.0 for its additive public session-context API. The 4.0 line's Node
 20-to-24 support-floor change remains the existing breaking runtime baseline. Lex-MCP
 preserves exact major/version alignment with Lex.
 Neither package version renames the Ecosystem 3.1 train.
@@ -13,7 +13,7 @@ The public 4.0.2 npm pair and signed tags remain valid, but Lex 4.0.2 did not co
 release or MCP Registry publication. The coordinated 4.0.3 pair completed npm publication, signed
 tags, non-draft GitHub releases, and Lex MCP Registry publication. Version 4.0.4 added the PostgreSQL
 compound-reference recall correction. The released 4.1.0 pair added Slice 1A1's experimental policy
-contracts. The released 4.2.0 pair combines Slices 1A2 and 1A3. The 4.3.0 candidate adds
+contracts. The released 4.2.0 pair combines Slices 1A2 and 1A3. The released 4.3.0 pair adds
 projections, explicit absence and lifecycle corrections without rewriting those immutable
 releases; see [4.3 release notes](./lex-4.3.md).
 
@@ -21,7 +21,7 @@ The canonical machine-readable draft is [`releases/ecosystem-3.1.json`](../../re
 Its schema is
 [`canon/schemas/ecosystem-release-v1.schema.json`](../../canon/schemas/ecosystem-release-v1.schema.json).
 Lex consumers migrate through the
-[Lex 4.3 migration and recovery guide](./lex-4.3-migration.md). The
+[Lex 4.4 migration and recovery guide](./lex-4.4-migration.md). The
 [delete-first documentation inventory](./ecosystem-3.1-documentation-inventory.md) records current
 owners, historical boundaries, and bounded follow-up cleanup.
 
