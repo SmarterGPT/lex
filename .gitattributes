@@ -1,2 +1,6 @@
 # Projection goldens are exact bytes, including LF, on every checkout platform.
 test/normative-policy/goldens/*.md text eol=lf
+# Workflow text is also inspected byte-for-byte by release-policy guards.
+.github/workflows/*.yml text eol=lf
+# Vendored schemas have independently pinned byte digests.
+scripts/schemas/*.json text eol=lf
