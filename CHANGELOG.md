@@ -1,5 +1,28 @@
 # Changelog
 
+## 4.3.0
+
+See the [4.3 migration and recovery guide](docs/releases/lex-4.3-migration.md).
+
+### Minor Changes
+
+- f66b956: Represent a confirmed absent operation explicitly so conditional policy can be dormant
+  without confusing absence with unknown proposal data. Existing null proposals retain
+  their fail-closed unknown meaning; absence cannot carry a route or implementation.
+- 58631c4: Add deterministic, non-authorizing Codex and Copilot shadow policy projections with
+  explicit profiles, independent fidelity/enforcement reporting, and verifiable receipts.
+
+### Patch Changes
+
+- Canonicalize both caller and repository paths during runtime discovery; preserve exact LF projection goldens across platforms.
+- Refresh sharp and js-yaml patch dependencies to resolve audit findings.
+
+- 03834c8: Return a closeable HTTP server handle and reject bind failures. Keep OAuth state local to each router and expire it on requests without an import-time background timer.
+- 0506849: Preserve explicit `lex recall --fold-radius 0` so only seed modules are returned.
+  Omitting the option still defaults to one hop. Reject negative, fractional,
+  malformed and unsafe integer radii before accessing the Frame store; direct recall
+  callers receive the same numeric validation.
+
 ## 4.2.0
 
 See the [4.2 migration and recovery guide](docs/releases/lex-4.2-migration.md).

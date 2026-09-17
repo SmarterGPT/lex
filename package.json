@@ -1,6 +1,6 @@
 {
   "name": "@smartergpt/lex",
-  "version": "4.2.0",
+  "version": "4.3.0",
   "description": "MIT-licensed memory, policy, and continuity framework with MCP server. For local dev and private automation.",
   "type": "module",
   "main": "dist/index.js",

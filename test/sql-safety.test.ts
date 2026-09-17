@@ -23,7 +23,7 @@
 
 import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
-import { execSync } from "child_process";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "path";
 
 // Allowed paths for db.prepare() usage (relative to src/)
@@ -44,27 +44,26 @@ const ALLOWED_PATTERNS = [
   "knowledge/store-queries.ts",
 ];
 
+function scanSourceLines(repoRoot: string, pattern: RegExp): string[] {
+  function walk(relative: string): string[] {
+    return readdirSync(join(repoRoot, relative), { withFileTypes: true }).flatMap((entry) => {
+      const path = `${relative}/${entry.name}`;
+      if (entry.isDirectory()) return walk(path);
+      if (!entry.isFile() || !entry.name.endsWith(".ts")) return [];
+      return readFileSync(join(repoRoot, path), "utf8")
+        .split(/\r?\n/)
+        .flatMap((line, index) => (pattern.test(line) ? [`${path}:${index + 1}:${line}`] : []));
+    });
+  }
+  return walk("src");
+}
+
 describe("SQL Safety", () => {
   it("should only use db.prepare() in curated SQL modules", () => {
     const repoRoot = join(import.meta.dirname, "..");
 
-    // Find all .prepare( calls in src/
-    let grepOutput: string;
-    try {
-      grepOutput = execSync('grep -rn "\\.prepare(" src/ --include="*.ts"', {
-        cwd: repoRoot,
-        encoding: "utf8",
-      });
-    } catch (error: unknown) {
-      // grep exits with 1 if no matches, which is actually good
-      if ((error as { status?: number }).status === 1) {
-        return; // No prepare() calls found - pass
-      }
-      throw error;
-    }
-
     const violations: string[] = [];
-    const lines = grepOutput.trim().split("\n").filter(Boolean);
+    const lines = scanSourceLines(repoRoot, /\.prepare\(/);
 
     for (const line of lines) {
       // Extract file path from grep output (format: "path:line:content")
@@ -106,20 +105,8 @@ describe("SQL Safety", () => {
   it("should not have dynamic SQL string interpolation in curated modules", () => {
     const repoRoot = join(import.meta.dirname, "..");
 
-    // Look for dangerous patterns: template literals with variables in SQL
-    // This catches: `SELECT * FROM ${table}` or `WHERE ${column} = ?`
-    let grepOutput: string;
-    try {
-      // Look for .prepare(`...${...}...`) pattern - dynamic SQL
-      grepOutput = execSync('grep -rn "\\.prepare(\\`[^\\`]*\\${" src/ --include="*.ts" || true', {
-        cwd: repoRoot,
-        encoding: "utf8",
-      });
-    } catch {
-      return; // grep error, skip
-    }
-
-    const lines = grepOutput.trim().split("\n").filter(Boolean);
+    // Preserve the existing single-line heuristic; filesystem errors fail the gate.
+    const lines = scanSourceLines(repoRoot, /\.prepare\(`[^`]*\$\{/);
 
     // Filter out legitimate dynamic SQL (e.g., building WHERE clauses with validated columns)
     const dangerous: string[] = [];

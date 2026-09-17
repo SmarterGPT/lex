@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { alternateStoreWarning, resolveStoreIdentity } from "@app/shared/config/store-identity.js";
@@ -20,8 +20,12 @@ test("store identity discovers alternate shared stores in project ancestors", ()
     const warning = alternateStoreWarning(resolution);
 
     assert.match(resolution.identity, /^path-v1:[a-f0-9]{16}$/);
-    assert.ok(resolution.candidates.some((candidate) => candidate.canonicalPath === shared));
-    assert.ok(warning?.includes(shared));
+    assert.ok(
+      resolution.candidates.some(
+        (candidate) => candidate.canonicalPath === realpathSync.native(shared)
+      )
+    );
+    assert.ok(warning?.includes(realpathSync.native(shared)));
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

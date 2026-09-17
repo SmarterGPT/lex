@@ -234,7 +234,13 @@ export class NodeRuntimeScopeDiscoveryAdapter implements RuntimeScopeDiscoveryAd
     readonly entrypoint: TrustedRuntimeEntrypoint;
     readonly bootstrap: BootstrapInputSnapshotV1;
   }): Promise<RuntimeScopeDiscoveryV1> {
-    const start = callerRoot(request.bootstrap);
+    // Compare canonical filesystem paths on both sides. Windows short names and
+    // caller symlinks can otherwise look unrelated to the canonical Git root.
+    const start = normalizeExecutionSurfacePath(
+      await realpath(callerRoot(request.bootstrap)),
+      request.bootstrap.executionSurface,
+      "canonical caller root"
+    );
     const git = await this.git.inspect(start);
     const unnormalizedRoot =
       git?.root ?? findDeclarationRoot(start, this.declarationFileName) ?? start;

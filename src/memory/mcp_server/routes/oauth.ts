@@ -56,19 +56,6 @@ interface StateStore {
 // - Single-instance deployments
 // - Development/testing environments
 // - Internal use with low traffic
-const stateStore: StateStore = {};
-
-// Clean up expired states (older than 10 minutes)
-setInterval(() => {
-  const now = Date.now();
-  const expirationTime = 10 * 60 * 1000; // 10 minutes
-
-  Object.keys(stateStore).forEach((state) => {
-    if (now - stateStore[state].createdAt > expirationTime) {
-      delete stateStore[state];
-    }
-  });
-}, 60 * 1000); // Run every minute
 
 /**
  * Create OAuth2 router with rate limiting
@@ -79,6 +66,16 @@ setInterval(() => {
  */
 export function createOAuthRouter(db: Database.Database, config: OAuthConfig): Router {
   const router = Router();
+  // State belongs to this router, not the imported module or another server.
+  // Expire on use so idle/import-only consumers need no background timer.
+  const stateStore: StateStore = Object.create(null);
+  router.use((_req, _res, next) => {
+    const now = Date.now();
+    for (const state of Object.keys(stateStore)) {
+      if (now - stateStore[state].createdAt > 10 * 60 * 1000) delete stateStore[state];
+    }
+    next();
+  });
 
   // Standard rate limiter for OAuth initiation (less strict)
   const oauthInitLimiter: RequestHandler = rateLimit({

@@ -9,7 +9,17 @@ import {
   DEFAULT_EXCLUDED_TEST_PREFIXES,
   classifyDefaultTest,
   discoverDefaultTests,
+  runTestProcess,
 } from "../../scripts/run-tests.mjs";
+
+test("test-process watchdog terminates a stalled child and preserves normal exit status", () => {
+  const normal = runTestProcess(["-e", "process.exitCode = 3"], { timeoutMs: 5000 });
+  assert.equal(normal.status, 3);
+  const stalled = runTestProcess(["-e", "setInterval(() => {}, 1000)"], { timeoutMs: 300 });
+  assert.equal(stalled.error?.code, "ETIMEDOUT");
+  assert.notEqual(stalled.status, 0);
+  assert.throws(() => runTestProcess([], { timeoutMs: 0 }), /Invalid test deadline/);
+});
 
 const fixtureRoot = mkdtempSync(join(tmpdir(), "lex-portable-test-runner-"));
 

@@ -103,6 +103,7 @@ jobs:
 
   build-candidate:
     name: Build, verify, and retain candidate
+    timeout-minutes: 60
     needs: validate-identity
     runs-on: ubuntu-latest
     permissions:

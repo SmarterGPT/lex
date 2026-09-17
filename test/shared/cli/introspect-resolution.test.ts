@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, rmSync, writeFileSync } from "fs";
+import { existsSync, mkdirSync, realpathSync, rmSync, writeFileSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
 
@@ -97,7 +97,10 @@ test("lex introspect --json exposes workspace and path provenance for consumer w
     assert.strictEqual(configFile.source, "caller-workspace");
     assert.strictEqual(database.path, join(consumerDir, "data", "shared.db"));
     assert.strictEqual(database.source, "file:.lex.config.json");
-    assert.strictEqual(database.canonicalPath, join(consumerDir, "data", "shared.db"));
+    assert.strictEqual(
+      database.canonicalPath,
+      realpathSync.native(join(consumerDir, "data", "shared.db"))
+    );
     assert.match(database.identity as string, /^path-v1:[a-f0-9]{16}$/);
     assert.strictEqual(policy.path, join(consumerDir, ".smartergpt", "lex", "lexmap.policy.json"));
     assert.strictEqual(policy.source, "workspace-working");
