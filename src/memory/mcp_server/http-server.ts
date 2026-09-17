@@ -15,6 +15,7 @@ import type Database from "better-sqlite3-multiple-ciphers";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import { createHash } from "crypto";
+import type { Server } from "node:http";
 import { createFramesRouter } from "./routes/frames.js";
 import { createOAuthRouter } from "./routes/oauth.js";
 import { createAtlasRouter } from "./routes/atlas.js";
@@ -179,7 +180,7 @@ export function createHttpServer(db: Database.Database, options: HttpServerOptio
 export async function startHttpServer(
   db: Database.Database,
   options: HttpServerOptions
-): Promise<void> {
+): Promise<Server> {
   // SECURITY: Require at least one authentication method
   if (!options.enableOAuth && (!options.apiKey || options.apiKey.trim() === "")) {
     throw new AXErrorException(
@@ -198,11 +199,16 @@ export async function startHttpServer(
     );
   }
 
-  const port = options.port || 3000;
+  const port = options.port ?? 3000;
   const app = createHttpServer(db, options);
 
-  return new Promise((resolve) => {
-    app.listen(port, () => {
+  return new Promise((resolve, reject) => {
+    const server = app.listen(port, (error?: Error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      server.removeListener("error", reject);
       logger.info(`Frame ingestion API listening on port ${port}`);
       if (options.enableOAuth) {
         logger.info("OAuth2 authentication enabled");
@@ -222,7 +228,8 @@ export async function startHttpServer(
         api_key_enabled: !!options.apiKey,
         timestamp: new Date().toISOString(),
       });
-      resolve();
+      resolve(server);
     });
+    server.once("error", reject);
   });
 }

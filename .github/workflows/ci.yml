@@ -1,4 +1,4 @@
-# Minimal CI: lint + typecheck only
+# PR/push CI: lint, typecheck and portable build/tests.
 # To run full CI: use workflow_dispatch with 'level' input
 # Local equivalents:
 #   minimal: npm run ci:minimal
@@ -39,6 +39,7 @@ jobs:
   # Stage 0: Verify Commit Signatures (MANDATORY - always runs)
   verify-signatures:
     name: Verify Signatures
+    timeout-minutes: 10
     runs-on: ubuntu-latest
     steps:
       - name: Harden Runner
@@ -58,7 +59,9 @@ jobs:
       - name: Verify commit signatures
         run: |
           if [ "${{ github.event_name }}" == "pull_request" ]; then
-            COMMIT_RANGE="${{ github.event.pull_request.base.sha }}..${{ github.sha }}"
+            COMMIT_RANGE="${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
+          elif [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            COMMIT_RANGE="${{ github.sha }}^..${{ github.sha }}"
           else
             COMMIT_RANGE="${{ github.event.before }}..${{ github.sha }}"
           fi
@@ -81,6 +84,7 @@ jobs:
   # Minimal gates: lint + typecheck (always runs)
   lint:
     name: Lint
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     needs: verify-signatures
     steps:
@@ -94,6 +98,7 @@ jobs:
 
   typecheck:
     name: TypeCheck
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     needs: verify-signatures
     steps:
@@ -108,6 +113,7 @@ jobs:
 
   mcp-registry-contract:
     name: MCP Registry Contract
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     needs: verify-signatures
     steps:
@@ -131,13 +137,18 @@ jobs:
       - run: npm run check:dependency-audit
       - run: npm run check:ecosystem-release
 
-  # Standard gates: build + tests (only on workflow_dispatch with level >= standard)
+  # Build/tests qualify PRs and main; manual minimal runs may omit them.
   build-and-test:
     name: Build & Test
-    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
     needs: [lint, typecheck]
     if: >-
-      github.event_name == 'workflow_dispatch' &&
+      github.event_name != 'workflow_dispatch' ||
       (inputs.level == 'standard' || inputs.level == 'full')
     steps:
       - uses: actions/checkout@v7
@@ -147,7 +158,7 @@ jobs:
           cache: "npm"
       - run: npm ci --ignore-scripts
       - run: npm rebuild better-sqlite3-multiple-ciphers
-      - run: npm run setup-local
+      - run: bash scripts/setup-local.sh
       - run: npm run build
       - run: npm run validate-schemas
       - run: npm run coverage
@@ -155,6 +166,7 @@ jobs:
   # Full gates: integration tests (only on workflow_dispatch with level == full)
   integration-tests:
     name: Integration Tests
+    timeout-minutes: 30
     runs-on: ubuntu-latest
     needs: build-and-test
     if: >-
@@ -174,6 +186,7 @@ jobs:
   # Package validation (only on full)
   validate-packages:
     name: Validate Packages
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     needs: build-and-test
     if: >-
@@ -193,7 +206,16 @@ jobs:
   ci-complete:
     name: CI Complete
     runs-on: ubuntu-latest
-    needs: [verify-signatures, lint, typecheck, mcp-registry-contract]
+    needs:
+      [
+        verify-signatures,
+        lint,
+        typecheck,
+        mcp-registry-contract,
+        build-and-test,
+        integration-tests,
+        validate-packages,
+      ]
     if: always()
     steps:
       - name: Check results
@@ -210,4 +232,10 @@ jobs:
           if [[ "${{ needs.mcp-registry-contract.result }}" != "success" ]]; then
             echo "❌ MCP Registry Contract failed"; exit 1
           fi
-          echo "✅ CI Complete (level: ${{ inputs.level || 'minimal' }})"
+          if [[ "${{ needs.build-and-test.result }}" != "success" && !( "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.level }}" == "minimal" && "${{ needs.build-and-test.result }}" == "skipped" ) ]]; then
+            echo "❌ Build and tests did not pass"; exit 1
+          fi
+          if [[ "${{ inputs.level }}" == "full" && ( "${{ needs.integration-tests.result }}" != "success" || "${{ needs.validate-packages.result }}" != "success" ) ]]; then
+            echo "❌ Full qualification did not pass"; exit 1
+          fi
+          echo "✅ CI Complete (level: ${{ inputs.level || 'standard' }})"

@@ -8,6 +8,23 @@ import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+export const TEST_GROUP_TIMEOUT_MS = 20 * 60 * 1000;
+
+/** Hard outer watchdog; test assertions retain their own normal completion behavior. */
+export function runTestProcess(
+  args,
+  { cwd = repositoryRoot, timeoutMs = TEST_GROUP_TIMEOUT_MS } = {}
+) {
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0) throw new Error("Invalid test deadline");
+  return spawnSync(process.execPath, args, {
+    cwd,
+    env: process.env,
+    stdio: "inherit",
+    windowsHide: true,
+    timeout: timeoutMs,
+    killSignal: "SIGKILL",
+  });
+}
 
 export const DEFAULT_EXCLUDED_TEST_PATHS = Object.freeze([
   "test/memory/api-ingestion.perf.test.ts",
@@ -77,18 +94,28 @@ function runTestGroup(label, testPaths, baseDir) {
 
   console.log(`\nRunning ${testPaths.length} ${label} test files...`);
   const require = createRequire(join(baseDir, "package.json"));
-  const tsxCli = require.resolve("tsx/cli");
-  const result = spawnSync(
-    process.execPath,
-    [tsxCli, "--import", "./test/helpers/setup.ts", "--test", "--test-force-exit", ...testPaths],
+  const tsxLoader = pathToFileURL(require.resolve("tsx")).href;
+  const result = runTestProcess(
+    [
+      "--import",
+      tsxLoader,
+      "--import",
+      "./test/helpers/setup.ts",
+      "--test",
+      "--test-force-exit",
+      ...testPaths,
+    ],
     {
       cwd: baseDir,
-      env: process.env,
-      stdio: "inherit",
-      windowsHide: true,
     }
   );
 
+  if (result.error?.code === "ETIMEDOUT") {
+    console.error(
+      `${label} test group exceeded ${TEST_GROUP_TIMEOUT_MS}ms (${testPaths.length} files); runner terminated. Check worker cleanup and the last reported test. Descendant cleanup is not proven by this result.`
+    );
+    return 1;
+  }
   if (result.error) throw result.error;
   if (result.signal) {
     console.error(`${label} test process terminated by ${result.signal}`);
@@ -104,9 +131,22 @@ export function runDefaultTests(baseDir = repositoryRoot) {
     return 1;
   }
 
-  const typescriptStatus = runTestGroup("TypeScript", tests.typescript, baseDir);
+  // Timing budgets measure the workload, not contention with every functional test.
+  // Keep the benchmark in the default gate, with unchanged assertions.
+  const benchmark = "test/memory/benchmarks.test.ts";
+  const typescriptStatus = runTestGroup(
+    "TypeScript",
+    tests.typescript.filter((path) => path !== benchmark),
+    baseDir
+  );
   if (typescriptStatus !== 0) return typescriptStatus;
-  return runTestGroup("JavaScript", tests.javascript, baseDir);
+  const javascriptStatus = runTestGroup("JavaScript", tests.javascript, baseDir);
+  if (javascriptStatus !== 0) return javascriptStatus;
+  return runTestGroup(
+    "Benchmark",
+    tests.typescript.filter((path) => path === benchmark),
+    baseDir
+  );
 }
 
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
