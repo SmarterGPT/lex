@@ -18,7 +18,7 @@ Add this to `.vscode/mcp.json`:
   "servers": {
     "lex": {
       "command": "npx",
-      "args": ["--yes", "@smartergpt/lex-mcp@4.4.0"],
+      "args": ["--yes", "@smartergpt/lex-mcp@4.4.1"],
       "env": {
         "LEX_WORKSPACE_ROOT": "${workspaceFolder}",
         "LEX_STORE": "sqlite"
@@ -37,7 +37,7 @@ Add this to `claude_desktop_config.json`, replacing the project path with an abs
   "mcpServers": {
     "lex": {
       "command": "npx",
-      "args": ["--yes", "@smartergpt/lex-mcp@4.4.0"],
+      "args": ["--yes", "@smartergpt/lex-mcp@4.4.1"],
       "env": {
         "LEX_WORKSPACE_ROOT": "/absolute/path/to/project",
         "LEX_STORE": "sqlite"
