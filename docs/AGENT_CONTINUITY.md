@@ -16,6 +16,19 @@ lex context "authentication refresh" --max-tokens 800
 store identity, policy state, selection strategy, warnings, and output budget. It does not create
 or migrate the selected store.
 
+JSON context schema 1.3.0 preserves task summaries and return points before opaque
+provenance when the output budget is tight. A retained Frame may report
+`provenanceOmitted: true`; `budget.truncated` then remains true even when
+`budget.omittedFrames` is zero. Full provenance remains in the stored Frame and can be
+retrieved with `lex recall <frame-id> --json`. A later recall reads the current stored
+record; context does not promise an immutable historical snapshot.
+
+Text output reports `fields_truncated=true` when individual fields were clipped and
+`provenance=available-by-frame-id` when supporting provenance is available separately.
+The final budget line describes output-budget omissions, not field clipping. Follow the
+Frame ID when a clipped next action or missing evidence matters; do not treat the compact
+projection as a complete record. Provenance stays inline in JSON when it fits.
+
 When a query is supplied, every normalized query term must match a Frame before branch, workspace
 module overlap, and recency can rank it. Prefix matching remains available, but an unmatched or
 empty normalized query returns no Frames; it never falls back to unrelated recent continuity.

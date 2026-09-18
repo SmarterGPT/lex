@@ -318,6 +318,62 @@ test("context enforces the requested JSON output budget", async () => {
   assert.ok(result.warnings.some((warning) => warning.code === "OUTPUT_TRUNCATED"));
 });
 
+test("context defers oversized provenance while preserving continuity and stored evidence", async () => {
+  const original = frame(
+    "checkpoint",
+    "2026-07-01T00:00:00Z",
+    "main",
+    "Park the format experiment",
+    "Resume the context fix"
+  );
+  original.status_snapshot.provenance = { evidence: "x".repeat(24000) };
+  const store = new MemoryFrameStore([original]);
+  const result = await buildSessionContext(
+    { branch: "main", limit: 1, maxTokens: 1200, json: true },
+    store
+  );
+  assert.equal(result.frames.length, 1);
+  assert.equal(result.frames[0].nextAction, original.status_snapshot.next_action);
+  assert.equal(result.frames[0].summary, original.summary_caption);
+  assert.equal(result.frames[0].provenance, undefined);
+  assert.equal(result.frames[0].provenanceOmitted, true);
+  assert.equal(result.budget.truncated, true);
+  assert.equal(result.budget.omittedFrames, 0);
+  assert.ok(Math.ceil(JSON.stringify(result, null, 2).length / 4) <= 1200);
+  assert.deepEqual(
+    (await store.getFrameById(original.id))?.status_snapshot.provenance,
+    original.status_snapshot.provenance
+  );
+});
+
+test("context retains provenance when it fits and flags text field clipping", async () => {
+  const original = frame("checkpoint", "2026-07-01T00:00:00Z", "main", "Summary ".repeat(100));
+  original.status_snapshot.provenance = { source: "explicit record" };
+  const store = new MemoryFrameStore([original]);
+  const json = await buildSessionContext({ branch: "main", maxTokens: 4000, json: true }, store);
+  assert.deepEqual(json.frames[0].provenance, original.status_snapshot.provenance);
+  assert.equal(json.frames[0].provenanceOmitted, undefined);
+  const text = await buildSessionContext({ branch: "main", maxTokens: 1200 }, store);
+  assert.match(renderSessionContextText(text), /fields_truncated=true/);
+  assert.match(renderSessionContextText(text), /provenance=available-by-frame-id/);
+});
+
+test("JSON budget includes omission warnings and deferred provenance markers", async () => {
+  const records = Array.from({ length: 5 }, (_, index) => {
+    const item = frame(`f-${index}`, "2026-07-01T00:00:00Z", "main", "Task ".repeat(30));
+    item.status_snapshot.provenance = { evidence: "x".repeat(6000) };
+    return item;
+  });
+  for (const maxTokens of [600, 700, 800, 900, 1000, 1200]) {
+    const result = await buildSessionContext(
+      { branch: "main", limit: 5, maxTokens, json: true },
+      new MemoryFrameStore(records)
+    );
+    assert.ok(Math.ceil(JSON.stringify(result, null, 2).length / 4) <= maxTokens);
+    assert.equal(result.budget.omittedFrames, 5 - result.frames.length);
+  }
+});
+
 test("context reports a missing store without creating it", async () => {
   const projectRoot = mkdtempSync(join(tmpdir(), "lex-context-empty-"));
   writeFileSync(join(projectRoot, "package.json"), JSON.stringify({ name: "empty-context" }));
@@ -389,7 +445,7 @@ test("context opens an existing SQLite store read-only without changing its file
 
     const result = await buildSessionContext({ projectRoot, branch: "main", maxTokens: 1200 });
 
-    assert.strictEqual(result.schemaVersion, "1.2.0");
+    assert.strictEqual(result.schemaVersion, "1.3.0");
     assert.strictEqual(result.resolution.store.accessMode, "read-only");
     assert.strictEqual(result.frames[0]?.id, "sqlite-context");
     assert.ok(!result.warnings.some((warning) => warning.code === "STORE_UNAVAILABLE"));
