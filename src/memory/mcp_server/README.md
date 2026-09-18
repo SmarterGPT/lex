@@ -19,7 +19,7 @@ The supported transport is stdio JSON-RPC through `@smartergpt/lex-mcp`:
 ```json
 {
   "command": "npx",
-  "args": ["--yes", "@smartergpt/lex-mcp@4.4.0"]
+  "args": ["--yes", "@smartergpt/lex-mcp@4.4.1"]
 }
 ```
 

@@ -16,7 +16,7 @@ esac
 SCRIPT_DIR="$(cd "$LAUNCHER_DIR" && pwd)"
 
 if ! command -v node >/dev/null 2>&1; then
-  echo "[LEX_MCP_LEGACY_ENTRYPOINT_REMOVED] Install Node.js 24+, then replace this launcher with: npx --yes @smartergpt/lex-mcp@4.4.0" >&2
+  echo "[LEX_MCP_LEGACY_ENTRYPOINT_REMOVED] Install Node.js 24+, then replace this launcher with: npx --yes @smartergpt/lex-mcp@4.4.1" >&2
   exit 1
 fi
 

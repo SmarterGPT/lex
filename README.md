@@ -301,7 +301,7 @@ rather than reconstructing them from ambient environment variables.
 
 ## Project status
 
-**Current Version:** `4.4.0`
+**Current Version:** `4.4.1`
 
 Lex 4.4 adds a narrow canonical session-context API and repairs MCP help discovery. See the
 [4.4 release notes](./docs/releases/lex-4.4.md) and
