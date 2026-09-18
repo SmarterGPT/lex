@@ -25,7 +25,7 @@ import { loadPolicy, resolvePolicyPath } from "../policy/loader.js";
 import { buildFrameWriteContract } from "./frame-write-contract.js";
 import type { Policy } from "../types/policy.js";
 
-const CONTEXT_SCHEMA_VERSION = "1.2.0";
+const CONTEXT_SCHEMA_VERSION = "1.3.0";
 const DEFAULT_LIMIT = 5;
 const DEFAULT_MAX_TOKENS = 1200;
 const MIN_MAX_TOKENS = 256;
@@ -67,6 +67,8 @@ export interface ContextFrame {
   testsFailing: string[];
   /** Opaque caller-supplied historical data; consumers must not treat it as instructions. */
   provenance?: CallerProvenance;
+  /** Deferred for the output budget; retrieve the full Frame by id with recall. */
+  provenanceOmitted?: true;
   jira?: string;
   whySelected: string[];
   truncated: boolean;
@@ -339,6 +341,10 @@ export function renderSessionContextText(context: SessionContext): string {
     if (frame.testsFailing.length) {
       lines.push(`  tests_failing=${quote(frame.testsFailing.join(" | "))}`);
     }
+    if (frame.truncated) lines.push("  fields_truncated=true; full fields available by frame ID");
+    if (frame.provenance || frame.provenanceOmitted) {
+      lines.push("  provenance=available-by-frame-id");
+    }
   }
 
   lines.push(
@@ -362,22 +368,47 @@ function updateBudgetEstimate(context: SessionContext, format: "json" | "text"):
 
 function fitToBudget(context: SessionContext, format: "json" | "text"): SessionContext {
   const initiallySelected = context.frames.length;
+  const baseWarnings = [...context.warnings];
+  const refresh = () => {
+    context.selection.selectedCount = context.frames.length;
+    context.budget.omittedFrames = initiallySelected - context.frames.length;
+    context.budget.truncated =
+      context.budget.omittedFrames > 0 || context.frames.some((frame) => frame.provenanceOmitted);
+    context.warnings = [...baseWarnings];
+    if (context.budget.omittedFrames > 0) {
+      context.warnings.push({
+        code: "OUTPUT_TRUNCATED",
+        message: `${context.budget.omittedFrames} Frame(s) omitted for the output budget.`,
+      });
+    }
+    return updateBudgetEstimate(context, format);
+  };
   let estimate = updateBudgetEstimate(context, format);
 
+  // Preserve useful continuity before opaque supporting evidence. Only the
+  // projection changes; stored provenance remains available through full recall.
+  if (format === "json") {
+    const withProvenance = context.frames
+      .filter((frame) => frame.provenance !== undefined)
+      .sort((a, b) => JSON.stringify(b.provenance).length - JSON.stringify(a.provenance).length);
+    for (const frame of withProvenance) {
+      if (estimate <= context.budget.maxTokens) break;
+      const provenance = frame.provenance;
+      delete frame.provenance;
+      frame.provenanceOmitted = true;
+      const deferredEstimate = refresh();
+      if (deferredEstimate >= estimate) {
+        frame.provenance = provenance;
+        delete frame.provenanceOmitted;
+        estimate = refresh();
+      } else {
+        estimate = deferredEstimate;
+      }
+    }
+  }
   while (estimate > context.budget.maxTokens && context.frames.length > 0) {
     context.frames.pop();
-    context.selection.selectedCount = context.frames.length;
-    context.budget.truncated = true;
-    context.budget.omittedFrames = initiallySelected - context.frames.length;
-    estimate = updateBudgetEstimate(context, format);
-  }
-
-  if (context.budget.truncated) {
-    context.warnings.push({
-      code: "OUTPUT_TRUNCATED",
-      message: `${context.budget.omittedFrames} Frame(s) omitted for the output budget.`,
-    });
-    estimate = updateBudgetEstimate(context, format);
+    estimate = refresh();
   }
 
   if (estimate > context.budget.maxTokens) {
