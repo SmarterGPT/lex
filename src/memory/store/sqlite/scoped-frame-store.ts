@@ -429,6 +429,10 @@ class ScopedSqliteFrameStore extends SqliteBoundView implements ScopedFrameStore
       where.push("f.timestamp <= ?");
       parameters.push(safeCriteria.until.toISOString());
     }
+    if (safeCriteria.branch !== undefined) {
+      where.push("f.branch = ?");
+      parameters.push(safeCriteria.branch);
+    }
     if (safeCriteria.moduleScope?.length) {
       where.push(
         `EXISTS (SELECT 1 FROM json_each(f.module_scope) AS module

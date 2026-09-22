@@ -140,6 +140,7 @@ export class MemoryFrameStore implements FrameStore {
    * Performs simple in-memory filtering:
    * - query: substring match on reference_point + summary_caption
    * - moduleScope: array intersection
+   * - branch: exact, literal branch name
    * - since/until: timestamp comparison
    * - limit: maximum results
    */
@@ -176,6 +177,10 @@ export class MemoryFrameStore implements FrameStore {
       results = results.filter((f) => f.module_scope.some((m) => moduleScope.includes(m)));
     }
 
+    if (criteria.branch !== undefined) {
+      results = results.filter((f) => f.branch === criteria.branch);
+    }
+
     // Filter by since (timestamp >= since)
     if (criteria.since) {
       const sinceTime = criteria.since.getTime();
@@ -193,8 +198,12 @@ export class MemoryFrameStore implements FrameStore {
       results = results.filter((f) => f.userId === criteria.userId);
     }
 
-    // Sort by timestamp descending (newest first)
-    results.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    // Stable result order: timestamp descending, then ID descending.
+    results.sort(
+      (a, b) =>
+        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime() ||
+        b.id.localeCompare(a.id)
+    );
 
     // Apply limit
     if (criteria.limit !== undefined && criteria.limit > 0) {

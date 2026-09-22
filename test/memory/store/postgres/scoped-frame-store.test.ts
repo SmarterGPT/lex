@@ -193,6 +193,47 @@ function assertExplicitScope(query: RecordedQuery): void {
 }
 
 describe("PostgresScopedFrameStoreBackend", () => {
+  test("conjoins parameterized branch relevance with scope and all other search filters", async () => {
+    const pool = new FakePool();
+    const backend = new PostgresScopedFrameStoreBackend(pool as unknown as Pool, {
+      schema: SCHEMA,
+    });
+    const store = backend.bind(scope());
+    const branch = "feature/recovery_%";
+    await store.searchFrames({
+      query: "retrieval",
+      exact: true,
+      branch,
+      moduleScope: ["target/search"],
+      since: new Date("2026-01-01T00:00:00.000Z"),
+      until: new Date("2026-02-01T00:00:00.000Z"),
+      limit: 2,
+      userId: "caller-controlled",
+    } as never);
+    const search = dataQueries(pool).find(({ sql }) => sql.includes("search_vector @@"));
+    assert.ok(search);
+    assertExplicitScope(search);
+    assert.match(
+      search.sql,
+      /AND module_scope && \$6::text\[\] AND branch = \$7 AND "timestamp" >= \$8 AND "timestamp" <= \$9 ORDER BY "timestamp" DESC, id DESC LIMIT \$10$/
+    );
+    assert.deepEqual(search.values, [
+      IDS.tenantA,
+      IDS.workspaceA,
+      IDS.principalA,
+      "retrieval",
+      "retrieval",
+      ["target/search"],
+      branch,
+      "2026-01-01T00:00:00.000Z",
+      "2026-02-01T00:00:00.000Z",
+      2,
+    ]);
+    assert.equal(search.sql.includes(branch), false);
+    assert.equal(search.values.includes("caller-controlled"), false);
+    await backend.close();
+  });
+
   test("requires one explicit validated canonical schema", () => {
     const pool = new FakePool();
     for (const schema of ["", "Public", "pg_catalog", "tenant-name"]) {

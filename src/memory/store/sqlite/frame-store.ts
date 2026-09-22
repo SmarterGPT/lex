@@ -407,7 +407,7 @@ export class SqliteFrameStore implements FrameStore {
    * Search for Frames matching the given criteria.
    *
    * Uses FTS5 for text search when query is provided.
-   * Supports filtering by moduleScope, since, and until dates.
+   * Applies moduleScope, literal branch, user, and time filters before the limit.
    * Fuzzy matching is enabled by default (can be disabled with exact=true).
    */
   async searchFrames(criteria: FrameSearchCriteria): Promise<Frame[]> {
@@ -460,13 +460,26 @@ export class SqliteFrameStore implements FrameStore {
       params.push(criteria.userId);
     }
 
+    if (criteria.branch !== undefined) {
+      whereClauses.push("f.branch = ?");
+      params.push(criteria.branch);
+    }
+
+    if (criteria.moduleScope?.length) {
+      whereClauses.push(
+        `EXISTS (SELECT 1 FROM json_each(f.module_scope) AS module
+          WHERE module.value IN (${criteria.moduleScope.map(() => "?").join(", ")}))`
+      );
+      params.push(...criteria.moduleScope);
+    }
+
     // Build final query
     let query = baseQuery;
     if (whereClauses.length > 0) {
       query += usesFTS ? " AND " : " WHERE ";
       query += whereClauses.join(" AND ");
     }
-    query += " ORDER BY f.timestamp DESC";
+    query += " ORDER BY f.timestamp DESC, f.id DESC";
 
     if (criteria.limit !== undefined) {
       query += " LIMIT ?";
@@ -475,15 +488,7 @@ export class SqliteFrameStore implements FrameStore {
 
     try {
       const stmt = this._db.prepare(query);
-      let rows = stmt.all(...params) as FrameRow[];
-
-      // Handle moduleScope filter in JavaScript (module_scope is JSON array)
-      if (criteria.moduleScope && criteria.moduleScope.length > 0) {
-        rows = rows.filter((row) => {
-          const moduleScope = JSON.parse(row.module_scope) as string[];
-          return criteria.moduleScope!.some((m) => moduleScope.includes(m));
-        });
-      }
+      const rows = stmt.all(...params) as FrameRow[];
 
       return rows.map(rowToFrame);
     } catch (error: unknown) {

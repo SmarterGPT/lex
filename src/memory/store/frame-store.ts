@@ -37,6 +37,9 @@ export interface FrameSearchCriteria {
   /** Filter by module IDs (any match). */
   moduleScope?: string[];
 
+  /** Filter by exact, literal branch name before applying the result limit. */
+  branch?: string;
+
   /** Maximum results to return. */
   limit?: number;
 

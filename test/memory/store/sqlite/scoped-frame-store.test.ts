@@ -372,6 +372,15 @@ test("two workspace files can persist identical IDs without collision or observa
     await storeB.saveFrame({ ...legacyFrame("same-id"), summary_caption: "workspace B" });
     assert.equal((await storeA.getFrameById("same-id"))?.summary_caption, "workspace A");
     assert.equal((await storeB.getFrameById("same-id"))?.summary_caption, "workspace B");
+    const criteria = { branch: "main", moduleScope: ["memory/store"], limit: 1 };
+    assert.deepEqual(
+      (await storeA.searchFrames(criteria)).map(({ summary_caption }) => summary_caption),
+      ["workspace A"]
+    );
+    assert.deepEqual(
+      (await storeB.searchFrames(criteria)).map(({ summary_caption }) => summary_caption),
+      ["workspace B"]
+    );
     assert.equal(await storeA.getFrameCount(), 1);
     assert.equal(await storeB.getFrameCount(), 1);
     assert.throws(
