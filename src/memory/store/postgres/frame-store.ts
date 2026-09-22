@@ -423,6 +423,7 @@ export class PostgresFrameStore implements FrameStore {
     if (criteria.moduleScope?.length) {
       clauses.push(`module_scope && ${add(criteria.moduleScope)}::text[]`);
     }
+    if (criteria.branch !== undefined) clauses.push(`branch = ${add(criteria.branch)}`);
     if (criteria.since) clauses.push(`"timestamp" >= ${add(criteria.since.toISOString())}`);
     if (criteria.until) clauses.push(`"timestamp" <= ${add(criteria.until.toISOString())}`);
     if (criteria.userId) clauses.push(`user_id = ${add(criteria.userId)}`);

@@ -2,12 +2,14 @@ import assert from "node:assert/strict";
 
 import type { Frame } from "@app/memory/frames/types.js";
 import type { ScopedFrameStore } from "@app/memory/store/index.js";
+import { exerciseFilteredSearchConformance } from "./filtered-search-conformance.js";
 
 /** Backend-neutral normal-operation contract used by durable adapter suites. */
 export async function exerciseScopedFrameStoreConformance(
   store: ScopedFrameStore,
   prefix: string
 ): Promise<void> {
+  await exerciseFilteredSearchConformance(store, prefix);
   const recent = `${prefix}-recent`;
   const old = `${prefix}-old`;
   const superseded = `${prefix}-superseded`;

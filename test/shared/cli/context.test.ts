@@ -1,6 +1,14 @@
 import { afterEach, beforeEach, test } from "node:test";
 import assert from "node:assert";
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import { createHash } from "node:crypto";
@@ -11,6 +19,7 @@ import type { AuthorizedScopeV1 } from "@app/shared/runtime-scope/contracts.js";
 import { SqliteFrameStore } from "@app/memory/store/sqlite/index.js";
 import { DATABASE_SCHEMA_VERSION } from "@app/memory/store/db.js";
 import type { Frame } from "@app/shared/types/frame-schema.js";
+import type { FrameSearchCriteria } from "@app/memory/store/frame-store.js";
 import { buildSessionContext, renderSessionContextText } from "@app/shared/cli/context.js";
 
 const originalStoreBackend = process.env.LEX_STORE;
@@ -129,6 +138,156 @@ test("context prioritizes exact branch matches over global recency", async () =>
   assert.equal(Object.prototype.hasOwnProperty.call(result.frames[0], "provenance"), false);
   assert.strictEqual(result.selection.query, null);
   assert.ok(result.frames.every((item) => !item.whySelected.includes("query-match")));
+});
+
+test("context recovers older branch and module candidates before ranking without enlarging output", async () => {
+  const projectRoot = mkdtempSync(join(tmpdir(), "lex-context-pools-"));
+  mkdirSync(join(projectRoot, "canon", "policy"), { recursive: true });
+  writeFileSync(
+    join(projectRoot, "canon", "policy", "lexmap.policy.json"),
+    JSON.stringify({ modules: { "memory/store": { owns_paths: ["src/**"] } } })
+  );
+  const noise = Array.from({ length: 220 }, (_, i) => ({
+    ...frame(`noise-${i}`, "2026-07-10T00:00:00Z", "other", "anchor newer noise"),
+    module_scope: ["other/module"],
+  }));
+  const old = {
+    ...frame("old", "2026-07-01T00:00:00Z", "work", "anchor prior work"),
+    superseded_by: "current",
+  };
+  const current = frame("current", "2026-07-02T00:00:00Z", "main", "Replacement wording");
+  const moduleOnly = frame("module", "2026-07-03T00:00:00Z", "other", "anchor module work");
+  const store = new MemoryFrameStore([...noise, old, current, moduleOnly]);
+  try {
+    for (const query of [undefined, "anchor"]) {
+      for (const json of [false, true]) {
+        const result = await buildSessionContext(
+          { projectRoot, branch: "work", query, json, limit: 2, maxTokens: 1600 },
+          store
+        );
+        assert.equal(result.resolution.policy.loaded, true);
+        assert.deepEqual(
+          result.frames.map(({ id }) => id),
+          ["current", "module"]
+        );
+        assert.deepEqual(result.frames[0].whySelected, ["supersession-replacement"]);
+        assert.ok(result.selection.candidateCount > 50);
+        assert.deepEqual(result.selection.candidateSearch, {
+          limitPerPool: 50,
+          pools: ["recent", "branch", "modules"],
+          cappedPools: ["recent"],
+        });
+        const output = json ? JSON.stringify(result, null, 2) : renderSessionContextText(result);
+        assert.ok(Math.ceil(output.length / 4) <= 1600);
+        assert.equal(output.includes("anchor prior work"), false);
+      }
+    }
+    const missing = await buildSessionContext(
+      { projectRoot, branch: "work", query: "absent", maxTokens: 1600 },
+      store
+    );
+    assert.deepEqual(missing.frames, [], "branch relevance cannot bypass query matching");
+    assert.deepEqual(missing.selection.candidateSearch.pools, ["recent"]);
+  } finally {
+    rmSync(projectRoot, { recursive: true, force: true });
+  }
+});
+
+test("context honors supersession learned from a later candidate pool", async () => {
+  const prior = frame("prior", "2026-07-20T00:00:00Z", "work", "Retired guidance");
+  class ChangingStore extends MemoryFrameStore {
+    override async searchFrames(criteria: FrameSearchCriteria): Promise<Frame[]> {
+      if (criteria.branch) await this.saveFrame({ ...prior, superseded_by: "replacement" });
+      return super.searchFrames(criteria);
+    }
+  }
+  const store = new ChangingStore([
+    prior,
+    frame("replacement", "2026-07-01T00:00:00Z", "main", "Current guidance"),
+    ...Array.from({ length: 60 }, (_, i) =>
+      frame(`noise-${i}`, "2026-07-10T00:00:00Z", "other", "Recent noise")
+    ),
+  ]);
+  const result = await buildSessionContext({ branch: "work", limit: 1, maxTokens: 1600 }, store);
+  assert.deepEqual(
+    result.frames.map(({ id }) => id),
+    ["replacement"]
+  );
+  assert.equal(JSON.stringify(result).includes("Retired guidance"), false);
+});
+
+test("context avoids subset searches for complete recent pools and reports actual caps", async () => {
+  class SearchCountingStore extends MemoryFrameStore {
+    searches: FrameSearchCriteria[] = [];
+    override async searchFrames(criteria: FrameSearchCriteria): Promise<Frame[]> {
+      this.searches.push(criteria);
+      return super.searchFrames(criteria);
+    }
+  }
+  for (const count of [49, 50, 51, 650]) {
+    const store = new SearchCountingStore(
+      Array.from({ length: count }, (_, i) =>
+        frame(`record-${i}`, "2026-07-10T00:00:00Z", "work", "anchor work")
+      )
+    );
+    for (const query of [undefined, "anchor"]) {
+      store.searches = [];
+      const result = await buildSessionContext(
+        { branch: "work", query, limit: 1, maxTokens: 1600 },
+        store
+      );
+      assert.equal(result.selection.candidateSearch.cappedPools.includes("recent"), count > 50);
+      if (count <= 50) {
+        assert.equal(store.searches.length, query ? 1 : 0);
+        assert.deepEqual(result.selection.candidateSearch.pools, ["recent"]);
+      } else {
+        assert.ok(store.searches.some(({ branch }) => branch === "work"));
+        assert.ok(store.searches.length <= 3);
+        assert.ok(store.searches.every(({ limit }) => limit === 51));
+      }
+      assert.ok(result.selection.candidateCount <= 150);
+      assert.equal(result.frames.length, 1);
+    }
+  }
+  const store = new SearchCountingStore([frame("one", "2026-07-01T00:00:00Z", "work", "anchor")]);
+  const invalid = await buildSessionContext(
+    { branch: "work", query: "!!!", maxTokens: 1600 },
+    store
+  );
+  assert.equal(store.searches.length, 0);
+  assert.deepEqual(invalid.selection.candidateSearch.pools, []);
+});
+
+test("text rendering keeps saved pre-1.5 context usable without inventing search coverage", async () => {
+  const stored = await buildSessionContext(
+    { branch: "work", maxTokens: 1600 },
+    new MemoryFrameStore([frame("saved", "2026-07-01T00:00:00Z", "work", "Saved context")])
+  );
+  Object.assign(stored, { schemaVersion: "1.4.0" });
+  Reflect.deleteProperty(stored.selection, "candidateSearch");
+  const output = renderSessionContextText(stored);
+  assert.match(output, /LEX SESSION CONTEXT v1\.4\.0/);
+  assert.match(output, /Saved context/);
+  assert.match(output, /coverage=unavailable/);
+});
+
+test("context discards partial pools after a subset read fails", async () => {
+  class FailingSubsetStore extends MemoryFrameStore {
+    override async searchFrames(criteria: FrameSearchCriteria): Promise<Frame[]> {
+      if (criteria.branch) throw new Error("subset read unavailable");
+      return super.searchFrames(criteria);
+    }
+  }
+  const store = new FailingSubsetStore(
+    Array.from({ length: 51 }, (_, i) =>
+      frame(`record-${i}`, "2026-07-01T00:00:00Z", "work", "anchor")
+    )
+  );
+  const result = await buildSessionContext({ branch: "work", maxTokens: 1600 }, store);
+  assert.deepEqual(result.frames, []);
+  assert.deepEqual(result.selection.candidateSearch.pools, []);
+  assert.ok(result.warnings.some(({ code }) => code === "STORE_UNAVAILABLE"));
+  assert.ok(!result.warnings.some(({ code }) => code === "NO_FRAMES"));
 });
 
 test("context requires all query terms while preserving fuzzy prefix matches", async () => {
@@ -687,6 +846,11 @@ test("context opens an existing SQLite store read-only without changing its file
       ...frame("sqlite-old", "2026-07-13T00:00:00Z", "work", "anchor"),
       superseded_by: "sqlite-context",
     });
+    await writable.saveFrames(
+      Array.from({ length: 60 }, (_, i) =>
+        frame(`sqlite-noise-${i}`, "2026-07-15T00:00:00Z", "other", "anchor newer noise")
+      )
+    );
     await writable.close();
     const before = storeSnapshot(dbPath);
 
@@ -697,7 +861,7 @@ test("context opens an existing SQLite store read-only without changing its file
       maxTokens: 1200,
     });
 
-    assert.strictEqual(result.schemaVersion, "1.4.0");
+    assert.strictEqual(result.schemaVersion, "1.5.0");
     assert.strictEqual(result.resolution.store.accessMode, "read-only");
     assert.strictEqual(result.frames[0]?.id, "sqlite-context");
     assert.ok(!result.warnings.some((warning) => warning.code === "STORE_UNAVAILABLE"));

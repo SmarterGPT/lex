@@ -323,6 +323,18 @@ describe("MemoryScopedFrameStoreBackend", () => {
       ["old"]
     );
     assert.deepEqual(
+      (
+        await workspaceA.searchFrames({
+          query: "alpha",
+          branch: "agent/759-scoped-frame-store",
+          moduleScope: ["memory/store"],
+          limit: 1,
+        })
+      ).map(({ id }) => id),
+      ["old"],
+      "a newer matching Frame in another workspace must not displace the scoped hit"
+    );
+    assert.deepEqual(
       (await workspaceA.listFrames({ limit: 10 })).frames.map(({ id }) => id),
       ["new", "old"]
     );

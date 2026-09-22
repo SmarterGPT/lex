@@ -16,8 +16,9 @@ lex context "authentication refresh" --max-tokens 800
 store identity, policy state, selection strategy, warnings, and output budget. It does not create
 or migrate the selected store.
 
-Context schema 1.4.0 adds explicit supersession resolution and `SUPERSESSION_UNRESOLVED`
-warnings. Query matching selects initial candidates; their returned replacements may
+Context schema 1.5.0 reports bounded candidate-search coverage; 1.4.0 added explicit
+supersession resolution and `SUPERSESSION_UNRESOLVED` warnings.
+Query matching selects initial candidates; their returned replacements may
 use different wording. This retains the JSON budgeting introduced in 1.3.0, which
 preserves task summaries and return points before opaque
 provenance when the output budget is tight. A retained Frame may report
@@ -33,7 +34,25 @@ Frame ID when a clipped next action or missing evidence matters; do not treat th
 projection as a complete record. Provenance stays inline in JSON when it fits.
 
 When a query is supplied, every normalized query term must match an initial candidate before branch,
-workspace module overlap, and recency rank it. A candidate's explicit `superseded_by` links are then
+workspace module overlap, and recency rank it. Retrieval starts with a recent pool of
+50–200 candidates, depending on the requested limit. If more matching history exists,
+separate branch and policy-module pools apply their filters before the same per-pool
+limit. All pools use the same selected store and query. Candidates are deduplicated
+before ranking; older branch/module work can therefore survive a busy recent history.
+A complete recent pool needs no extra subset searches. Unknown/detached branches and
+unavailable policies skip their respective subset searches.
+
+`selection.candidateSearch` reports `limitPerPool`, the pools read, and `cappedPools`;
+text output includes these on the selection line. A cap means more matches existed
+in that pool. At most three pools contribute 200 candidates each, with one extra
+lookahead record per search to detect a cap. This is bounded coverage, not exhaustive
+recovery of every relevant task or return point. A later observation replaces an
+earlier duplicate ID, including supersession learned during the request; separate
+reads are still not an atomic snapshot. Use a narrower query or full recall by ID
+when omitted history matters. Saved pre-1.5 text rendering reports coverage unavailable.
+The requested result limit and output token budget remain unchanged.
+
+A candidate's explicit `superseded_by` links are then
 followed through the same selected store. Only its terminal replacement is returned, even if that
 replacement uses different wording or belongs to another branch. Its `whySelected` reports
 `supersession-replacement`, rather than claiming it directly matched the query or branch. Multiple

@@ -7,6 +7,7 @@ import type { FrameStore } from "@app/memory/store/frame-store.js";
 import { MemoryFrameStore } from "@app/memory/store/memory/index.js";
 import { SqliteFrameStore } from "@app/memory/store/sqlite/index.js";
 import { PostgresFrameStore } from "@app/memory/store/postgres/index.js";
+import { exerciseFilteredSearchConformance } from "./filtered-search-conformance.js";
 
 const postgresUrl = process.env.LEX_TEST_DATABASE_URL;
 const postgresSchema = `lex_contract_${process.pid}_${randomBytes(4).toString("hex")}`;
@@ -110,6 +111,34 @@ function frameStoreContract(
         true
       );
       assert.equal(await store.getFrameById(valid.id), null);
+    });
+
+    test("applies literal branch and module relevance before the result limit", async () => {
+      await exerciseFilteredSearchConformance(store, name);
+    });
+
+    test("retains user ownership when combining relevance filters", async () => {
+      const common = {
+        branch: "contract-test",
+        module_scope: ["target/search"],
+        summary_caption: "Retrieval evidence",
+      };
+      await store.saveFrames([
+        frame(`${name}-user-visible`, "2026-01-05T00:00:00.000Z", { ...common, userId: "a" }),
+        frame(`${name}-user-hidden`, "2026-01-06T00:00:00.000Z", { ...common, userId: "b" }),
+      ]);
+      assert.deepEqual(
+        (
+          await store.searchFrames({
+            query: "retrieval",
+            branch: common.branch,
+            moduleScope: common.module_scope,
+            userId: "a",
+            limit: 1,
+          })
+        ).map(({ id }) => id),
+        [`${name}-user-visible`]
+      );
     });
 
     test("provides search and cursor-pagination parity", async () => {
