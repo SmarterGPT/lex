@@ -25,11 +25,13 @@ import { loadPolicy, resolvePolicyPath } from "../policy/loader.js";
 import { buildFrameWriteContract } from "./frame-write-contract.js";
 import type { Policy } from "../types/policy.js";
 
-const CONTEXT_SCHEMA_VERSION = "1.3.0";
+const CONTEXT_SCHEMA_VERSION = "1.4.0";
 const DEFAULT_LIMIT = 5;
 const DEFAULT_MAX_TOKENS = 1200;
 const MIN_MAX_TOKENS = 256;
 const MAX_CANDIDATES = 200;
+const MAX_SUPERSESSION_DEPTH = 20;
+const MAX_SUPERSESSION_LOOKUPS = 200;
 const MAX_TEXT_FIELD = 180;
 const MAX_ARRAY_ITEMS = 8;
 
@@ -44,6 +46,7 @@ export type ContextWarningCode =
   | "STORE_NOT_FOUND"
   | "STORE_REQUIRES_MIGRATION"
   | "STORE_UNAVAILABLE"
+  | "SUPERSESSION_UNRESOLVED"
   | "WORKSPACE_RELEVANCE_INFERRED";
 
 export interface ContextWarning {
@@ -294,6 +297,55 @@ function rankFrames(
     );
 }
 
+/** Resolve recorded replacements without expanding the candidate search or store scope. */
+async function selectCurrentFrames(
+  ranked: RankedFrame[],
+  limit: number,
+  store: FrameStore
+): Promise<{ selected: RankedFrame[]; unresolved: number }> {
+  const cache = new Map<string, Frame | null>(ranked.map(({ frame }) => [frame.id, frame]));
+  const selected: RankedFrame[] = [];
+  const selectedIds = new Set<string>();
+  let lookups = 0;
+  let unresolved = 0;
+
+  for (const candidate of ranked) {
+    if (selected.length >= limit) break;
+    let current: Frame | null = candidate.frame;
+    const visited = new Set<string>();
+    while (current && current.superseded_by !== undefined) {
+      if (visited.has(current.id) || visited.size >= MAX_SUPERSESSION_DEPTH) {
+        current = null;
+        break;
+      }
+      visited.add(current.id);
+      const replacementId: string = current.superseded_by;
+      if (!cache.has(replacementId)) {
+        if (lookups >= MAX_SUPERSESSION_LOOKUPS) {
+          current = null;
+          break;
+        }
+        lookups++;
+        cache.set(replacementId, await store.getFrameById(replacementId));
+      }
+      current = cache.get(replacementId) ?? null;
+    }
+    if (!current) {
+      unresolved++;
+      continue;
+    }
+    if (selectedIds.has(current.id)) continue;
+    selectedIds.add(current.id);
+    selected.push({
+      frame: current,
+      score: candidate.score,
+      // Relevance belongs to the matched predecessor, not necessarily its replacement's text/branch.
+      reasons: visited.size > 0 ? ["supersession-replacement"] : candidate.reasons,
+    });
+  }
+  return { selected, unresolved };
+}
+
 function estimateTokens(value: string): number {
   return Math.ceil(value.length / 4);
 }
@@ -540,6 +592,8 @@ export async function buildSessionContext(
   }
 
   let candidateFrames: Frame[] = [];
+  let selected: RankedFrame[] = [];
+  let storeReadSucceeded = false;
   if (storeResolutionError !== undefined) {
     warnings.push({
       code: "STORE_UNAVAILABLE",
@@ -571,7 +625,23 @@ export async function buildSessionContext(
             })
           : []
         : (await store.listFrames({ limit: candidateLimit })).frames;
+      const current = await selectCurrentFrames(
+        rankFrames(candidateFrames, branch.name, policyModules, options.query),
+        requestedLimit,
+        store
+      );
+      selected = current.selected;
+      storeReadSucceeded = true;
+      if (current.unresolved > 0) {
+        warnings.push({
+          code: "SUPERSESSION_UNRESOLVED",
+          message: `${current.unresolved} candidate Frame(s) omitted because their current replacements could not be resolved in the selected store within the traversal limits. Inspect supersession links with full recall; retired content was not returned.`,
+        });
+      }
     } catch (error) {
+      // A failed replacement lookup must never restore the initially retrieved retired records.
+      candidateFrames = [];
+      selected = [];
       warnings.push({
         code: error instanceof ReadOnlyDatabaseError ? error.code : "STORE_UNAVAILABLE",
         message: `The selected Lex store could not be read: ${
@@ -583,9 +653,7 @@ export async function buildSessionContext(
     }
   }
 
-  const ranked = rankFrames(candidateFrames, branch.name, policyModules, options.query);
-  const selected = ranked.slice(0, requestedLimit);
-  if (candidateFrames.length === 0) {
+  if (candidateFrames.length === 0 && storeReadSucceeded) {
     warnings.push({
       code: "NO_FRAMES",
       message: queryHasUnsupportedTerms
@@ -597,13 +665,14 @@ export async function buildSessionContext(
             : "No Frames are available in the selected store.",
     });
   } else if (
+    candidateFrames.length > 0 &&
     branch.name !== "unknown" &&
     !candidateFrames.some((frame) => frame.branch === branch.name)
   ) {
     warnings.push({
       code: "NO_BRANCH_MATCH",
       message: hasExplicitQuery
-        ? `No query-matched candidate Frame matches branch ${branch.name}; selection remained within query matches and ranked them by workspace modules and recency.`
+        ? `No query-matched candidate Frame matches branch ${branch.name}; candidates were ranked by workspace modules and recency before explicit supersession resolution.`
         : `No candidate Frame matches branch ${branch.name}; selection fell back to workspace modules and recency.`,
     });
   }
@@ -623,7 +692,14 @@ export async function buildSessionContext(
     projectRoot,
     branch: branch.name,
     query: options.query,
-    recentFrames: candidateFrames,
+    recentFrames: [
+      ...new Map(
+        [
+          ...candidateFrames.filter((frame) => frame.superseded_by === undefined),
+          ...selected.map(({ frame }) => frame),
+        ].map((frame) => [frame.id, frame])
+      ).values(),
+    ],
   });
   const context: SessionContext = {
     schemaVersion: CONTEXT_SCHEMA_VERSION,
@@ -659,8 +735,8 @@ export async function buildSessionContext(
       requestedLimit,
       candidateCount: candidateFrames.length,
       selectedCount: selected.length,
-      strategy:
-        hasExplicitQuery && !queryHasSearchTerms
+      strategy: [
+        ...(hasExplicitQuery && !queryHasSearchTerms
           ? ["query-normalization-reject"]
           : hasExplicitQuery
             ? [
@@ -669,7 +745,12 @@ export async function buildSessionContext(
                 "workspace-module-overlap-rank",
                 "recency-tiebreak",
               ]
-            : ["branch-rank", "workspace-module-overlap-rank", "recency-tiebreak"],
+            : ["branch-rank", "workspace-module-overlap-rank", "recency-tiebreak"]),
+        ...(selected.some(({ reasons }) => reasons.includes("supersession-replacement")) ||
+        warnings.some(({ code }) => code === "SUPERSESSION_UNRESOLVED")
+          ? ["explicit-supersession"]
+          : []),
+      ],
     },
     frameWriteContract: {
       requiredFields: writeContract.requiredFields,
