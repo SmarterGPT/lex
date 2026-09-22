@@ -84,6 +84,17 @@ it aborts before persistence. A coherent snapshot is persisted and activated ato
 selection reasons, provenance, freshness, and warnings. It returns bodies only from a `current`
 snapshot. When sources are stale, missing, invalid, or unindexed, stored bodies are excluded.
 
+Returned hypotheses include their stored `confidence: low | medium | high`; evidence, seam,
+and probe records omit the property. Confidence is an author-supplied qualitative assessment,
+not a calibrated probability or authority. It counts toward the existing compact JSON envelope
+byte budget. A hypothesis that cannot fit is omitted whole; its confidence is never stripped to
+make room. This additive projection field does not require reindexing unchanged sources or a
+stored schema migration. A confidence change in canonical Markdown does require reindexing,
+like any other source change.
+
+This applies to the direct CLI/API context result. An adapter that selects only IDs or shadow
+metadata must deliberately adopt richer record content before those fields reach its worker.
+
 `explain` resolves the logical ID in both the stored snapshot and current Markdown, reporting the
 current marker coordinates separately from stored snapshot coordinates. Coordinates are
 provenance, never identity.

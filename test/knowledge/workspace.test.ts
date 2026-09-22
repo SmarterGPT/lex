@@ -151,6 +151,82 @@ describe("Knowledge workspace operations", () => {
     assert.ok(context.warnings.some((warning) => warning.includes("stored bodies were excluded")));
   });
 
+  test("context preserves each hypothesis confidence and omits it on other record types", () => {
+    for (const confidence of ["low", "medium", "high"] as const) {
+      const fixture = workspace();
+      write(
+        fixture.sourcePath,
+        markdown("Working hypothesis").replace(
+          "type: probe",
+          `type: hypothesis\nconfidence: ${confidence}`
+        )
+      );
+      indexKnowledgeWorkspace(fixture.options);
+      const context = buildKnowledgeContext(fixture.options);
+      assert.equal(context.records.length, 1);
+      assert.equal(context.records[0].type, "hypothesis");
+      assert.equal(context.records[0].confidence, confidence);
+      assert.equal(context.safety.contentTrust, "untrusted-project-data");
+      assert.equal(context.budget.usedBytes, Buffer.byteLength(JSON.stringify(context), "utf8"));
+    }
+    for (const type of ["evidence", "seam", "probe"] as const) {
+      const fixture = workspace();
+      write(fixture.sourcePath, markdown("Observation").replace("type: probe", `type: ${type}`));
+      indexKnowledgeWorkspace(fixture.options);
+      const context = buildKnowledgeContext(fixture.options);
+      assert.equal(context.records.length, 1);
+      assert.equal(context.records[0].type, type);
+      assert.equal(Object.hasOwn(context.records[0], "confidence"), false);
+    }
+  });
+
+  test("confidence participates in the byte limit without being dropped to fit a hypothesis", () => {
+    const fixture = workspace();
+    write(
+      fixture.sourcePath,
+      markdown("Working hypothesis", "x".repeat(2_000)).replace(
+        "type: probe",
+        "type: hypothesis\nconfidence: medium"
+      )
+    );
+    indexKnowledgeWorkspace(fixture.options);
+    const full = buildKnowledgeContext({ ...fixture.options, maxBytes: 8_000 });
+    assert.equal(full.records[0]?.confidence, "medium");
+    const exactBudget = full.budget.usedBytes;
+    assert.ok(exactBudget > 2_048 && exactBudget < 8_000);
+    const fits = buildKnowledgeContext({ ...fixture.options, maxBytes: exactBudget });
+    assert.equal(fits.records.length, 1);
+    assert.equal(fits.budget.usedBytes, exactBudget);
+    assert.equal(fits.records[0].confidence, "medium");
+    const unqualified = structuredClone(fits);
+    Reflect.deleteProperty(unqualified.records[0], "confidence");
+    assert.ok(Buffer.byteLength(JSON.stringify(unqualified), "utf8") <= exactBudget - 1);
+
+    const tooSmall = buildKnowledgeContext({ ...fixture.options, maxBytes: exactBudget - 1 });
+    assert.deepEqual(tooSmall.records, [], "omit the whole hypothesis, never its qualification");
+    assert.equal(tooSmall.budget.omittedRecords, 1);
+    assert.equal(tooSmall.budget.usedBytes, Buffer.byteLength(JSON.stringify(tooSmall), "utf8"));
+    assert.ok(tooSmall.budget.usedBytes <= tooSmall.budget.maxBytes);
+  });
+
+  test("a confidence-only source change excludes the stale snapshot until reindexing", () => {
+    const fixture = workspace();
+    const source = markdown("Working hypothesis").replace(
+      "type: probe",
+      "type: hypothesis\nconfidence: low"
+    );
+    write(fixture.sourcePath, source);
+    indexKnowledgeWorkspace(fixture.options);
+    write(fixture.sourcePath, source.replace("confidence: low", "confidence: high"));
+    const stale = buildKnowledgeContext(fixture.options);
+    assert.equal(stale.snapshot.freshness, "stale");
+    assert.deepEqual(stale.records, []);
+    indexKnowledgeWorkspace(fixture.options);
+    const current = buildKnowledgeContext(fixture.options);
+    assert.equal(current.snapshot.freshness, "current");
+    assert.equal(current.records[0]?.confidence, "high");
+  });
+
   test("removed blocks make the snapshot stale and cannot leak stored bodies", () => {
     const fixture = workspace("Before removal");
     indexKnowledgeWorkspace(fixture.options);

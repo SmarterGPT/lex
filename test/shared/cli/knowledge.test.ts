@@ -37,7 +37,25 @@ lifecycle: active
 
 Capture the state before and after repair.
 
-<!-- lex:end -->`,
+<!-- lex:end -->` +
+      ["low", "medium", "high"]
+        .map(
+          (confidence) => `
+
+<!-- lex:frame
+id: cache-hypothesis-${confidence}
+type: hypothesis
+lifecycle: active
+confidence: ${confidence}
+-->
+
+## Cache state ${confidence}
+
+A working explanation of cache behavior.
+
+<!-- lex:end -->`
+        )
+        .join(""),
     "utf8"
   );
   execFileSync("git", ["init", "--quiet"], { cwd: projectRoot });
@@ -68,7 +86,7 @@ describe("lex knowledge", () => {
   test("check emits structured JSON and performs no store write", () => {
     const result = run(["knowledge", "check", "--repository-key", "example/repo"]);
     assert.equal(result.operation, "knowledge-check");
-    assert.equal(result.recordCount, 1);
+    assert.equal(result.recordCount, 4);
     assert.equal(result.databaseWrites, 0);
     assert.equal(existsSync(join(projectRoot, ".smartergpt", "lex", "knowledge.db")), false);
   });
@@ -90,6 +108,21 @@ describe("lex knowledge", () => {
     assert.equal(context.operation, "knowledge-context");
     assert.equal((context.snapshot as { freshness: string }).freshness, "current");
     assert.equal((context.records as unknown[]).length, 1);
+    assert.equal(Object.hasOwn((context.records as object[])[0], "confidence"), false);
+
+    const hypotheses = run(["knowledge", "context", "cache", "--repository-key", "example/repo"]);
+    const records = hypotheses.records as Array<{ id: string; type: string; confidence?: string }>;
+    assert.equal(records.length, 3);
+    assert.ok(records.every(({ type }) => type === "hypothesis"));
+    assert.deepEqual(Object.fromEntries(records.map(({ id, confidence }) => [id, confidence])), {
+      "cache-hypothesis-low": "low",
+      "cache-hypothesis-medium": "medium",
+      "cache-hypothesis-high": "high",
+    });
+    assert.equal(
+      (hypotheses.budget as { usedBytes: number }).usedBytes,
+      Buffer.byteLength(JSON.stringify(hypotheses), "utf8")
+    );
 
     const explained = run([
       "knowledge",
