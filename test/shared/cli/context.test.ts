@@ -164,6 +164,249 @@ test("context requires all query terms while preserving fuzzy prefix matches", a
   }
 });
 
+test("context follows a matched Frame to its replacement without returning the retired guidance", async () => {
+  const old = {
+    ...frame(
+      "old",
+      "2026-07-01T00:00:00Z",
+      "work",
+      "anchor obsolete approach",
+      "Obsolete next action"
+    ),
+    superseded_by: "current",
+  };
+  const current = frame(
+    "current",
+    "2026-07-02T00:00:00Z",
+    "main",
+    "Current approach",
+    "Current next action"
+  );
+  const store = new MemoryFrameStore([old, current]);
+  const result = await buildSessionContext(
+    { branch: "work", query: "anchor", limit: 1, json: true, maxTokens: 4000 },
+    store
+  );
+
+  assert.deepEqual(
+    result.frames.map(({ id }) => id),
+    ["current"]
+  );
+  assert.equal(result.frames[0].nextAction, "Current next action");
+  assert.deepEqual(result.frames[0].whySelected, ["supersession-replacement"]);
+  assert.ok(result.selection.strategy.includes("explicit-supersession"));
+  assert.equal(result.selection.candidateCount, 1);
+  assert.equal(JSON.stringify(result).includes("Obsolete next action"), false);
+  assert.equal(result.safety.contentTrust, "untrusted-historical-data");
+  assert.deepEqual(
+    await store.getFrameById("old"),
+    old,
+    "history remains unchanged and addressable"
+  );
+  const otherBranch = await buildSessionContext(
+    { branch: "another-branch", query: "anchor", limit: 1, json: true, maxTokens: 4000 },
+    store
+  );
+  assert.deepEqual(
+    otherBranch.frames.map(({ id }) => id),
+    ["current"]
+  );
+  assert.match(
+    otherBranch.warnings.find(({ code }) => code === "NO_BRANCH_MATCH")?.message ?? "",
+    /candidates were ranked.*before explicit supersession resolution/
+  );
+});
+
+test("context resolves replacement chains outside the initial query candidates", async () => {
+  const store = new MemoryFrameStore([
+    { ...frame("a", "2026-07-01T00:00:00Z", "work", "anchor"), superseded_by: "b" },
+    { ...frame("b", "2026-07-02T00:00:00Z", "main", "Intermediate"), superseded_by: "c" },
+    frame("c", "2026-07-03T00:00:00Z", "main", "Current"),
+  ]);
+  const result = await buildSessionContext(
+    { branch: "work", query: "anchor", limit: 1, maxTokens: 1200 },
+    store
+  );
+  assert.deepEqual(
+    result.frames.map(({ id }) => id),
+    ["c"]
+  );
+  assert.equal(result.selection.candidateCount, 1);
+  assert.equal(renderSessionContextText(result).includes('summary="Intermediate"'), false);
+});
+
+test("context omits missing, self-linked and cyclic supersession paths with a bounded gap", async () => {
+  const root = frame("a", "2026-07-01T00:00:00Z", "work", "anchor retired body");
+  const intermediate = frame("b", "2026-07-02T00:00:00Z", "main", "Retired intermediate");
+  for (const records of [
+    [{ ...root, superseded_by: "missing" }],
+    [{ ...root, superseded_by: "a" }],
+    [
+      { ...root, superseded_by: "b" },
+      { ...intermediate, superseded_by: "missing" },
+    ],
+    [
+      { ...root, superseded_by: "b" },
+      { ...intermediate, superseded_by: "a" },
+    ],
+    [
+      { ...root, superseded_by: "b" },
+      { ...intermediate, superseded_by: "b" },
+    ],
+  ]) {
+    for (const json of [true, false]) {
+      const result = await buildSessionContext(
+        { branch: "work", query: "anchor", maxTokens: 1200, json },
+        new MemoryFrameStore(records)
+      );
+      assert.equal(result.frames.length, 0);
+      assert.equal(
+        result.warnings.filter(({ code }) => code === "SUPERSESSION_UNRESOLVED").length,
+        1
+      );
+      assert.equal(JSON.stringify(result).includes("retired body"), false);
+      assert.equal(JSON.stringify(result).includes("Retired intermediate"), false);
+      assert.ok(result.budget.estimatedTokens <= 1200);
+    }
+  }
+});
+
+test("context counts unique current replacements and fills slots after unresolved paths", async () => {
+  const store = new MemoryFrameStore([
+    { ...frame("missing", "2026-07-04T00:00:00Z", "work", "anchor"), superseded_by: "absent" },
+    { ...frame("a", "2026-07-03T00:00:00Z", "work", "anchor"), superseded_by: "c" },
+    { ...frame("b", "2026-07-02T00:00:00Z", "work", "anchor"), superseded_by: "c" },
+    frame("c", "2026-07-01T00:00:00Z", "main", "anchor current"),
+    frame("d", "2026-06-01T00:00:00Z", "main", "anchor independent"),
+  ]);
+  const result = await buildSessionContext(
+    { branch: "work", query: "anchor", limit: 2, json: true, maxTokens: 4000 },
+    store
+  );
+  assert.deepEqual(
+    result.frames.map(({ id }) => id),
+    ["c", "d"]
+  );
+  assert.ok(result.warnings.some(({ code }) => code === "SUPERSESSION_UNRESOLVED"));
+});
+
+test("context replacement lookup stays in the bound workspace", async () => {
+  const backend = new MemoryScopedFrameStoreBackend();
+  const scope = (workspace: string): AuthorizedScopeV1 => ({
+    schemaVersion: 1,
+    grantId: "grant" as never,
+    tenantId: "tenant" as never,
+    workspaceId: workspace as never,
+    principalId: "principal" as never,
+    capabilities: ["frame:read", "frame:write"] as never,
+    authorityVersion: "v1",
+    scopeVersion: "v1",
+    authorityDigest: "sha256:fixture" as never,
+    verifiedAt: "2026-07-01T00:00:00Z",
+  });
+  const selected = backend.bind(scope("selected"));
+  const other = backend.bind(scope("other"));
+  try {
+    await selected.saveFrame({
+      ...frame("old", "2026-07-01T00:00:00Z", "work", "anchor"),
+      superseded_by: "replacement",
+    });
+    await other.saveFrame(
+      frame("replacement", "2026-07-02T00:00:00Z", "main", "Other workspace content")
+    );
+    const read = () =>
+      buildSessionContext(
+        { branch: "work", query: "anchor", maxTokens: 2000 },
+        scopedFrameStoreAsLegacyView(selected)
+      );
+    const absent = await read();
+    assert.equal(absent.frames.length, 0);
+    assert.ok(absent.warnings.some(({ code }) => code === "SUPERSESSION_UNRESOLVED"));
+    assert.equal(JSON.stringify(absent).includes("Other workspace content"), false);
+    await selected.saveFrame(
+      frame("replacement", "2026-07-02T00:00:00Z", "main", "Selected workspace content")
+    );
+    const present = await read();
+    assert.equal(present.frames[0]?.summary, "Selected workspace content");
+    assert.equal((await selected.getFrameById("old"))?.superseded_by, "replacement");
+  } finally {
+    await selected.close();
+    await other.close();
+    await backend.close();
+  }
+});
+
+test("context never falls back to retired candidates after a replacement lookup error", async () => {
+  class UnreadableReplacementStore extends MemoryFrameStore {
+    override async getFrameById(): Promise<Frame | null> {
+      throw new Error("replacement read unavailable");
+    }
+  }
+  const result = await buildSessionContext(
+    { branch: "work", query: "Retired", maxTokens: 2000 },
+    new UnreadableReplacementStore([
+      { ...frame("old", "2026-07-01T00:00:00Z", "work", "Retired"), superseded_by: "target" },
+    ])
+  );
+  assert.equal(result.frames.length, 0);
+  assert.ok(result.warnings.some(({ code }) => code === "STORE_UNAVAILABLE"));
+  assert.equal(
+    result.warnings.some(({ code }) => code === "NO_FRAMES"),
+    false
+  );
+});
+
+test("context bounds chain depth and total replacement lookups", async () => {
+  class CountingStore extends MemoryFrameStore {
+    lookups = 0;
+    override async getFrameById(id: string): Promise<Frame | null> {
+      this.lookups++;
+      return super.getFrameById(id);
+    }
+  }
+  for (const [roots, depth, expectedSelected] of [
+    [1, 21, 0],
+    [12, 20, 10],
+  ]) {
+    const records: Frame[] = [];
+    for (let root = 0; root < roots; root++) {
+      for (let step = 0; step <= depth; step++) {
+        records.push({
+          ...frame(
+            `node-${root}-${step}`,
+            "2026-07-01T00:00:00Z",
+            "work",
+            step === 0 ? "anchor" : "Linked content"
+          ),
+          ...(step < depth ? { superseded_by: `node-${root}-${step + 1}` } : {}),
+        });
+      }
+    }
+    const store = new CountingStore(records);
+    const result = await buildSessionContext(
+      { branch: "work", query: "anchor", limit: 50, maxTokens: 10000 },
+      store
+    );
+    assert.equal(result.frames.length, expectedSelected);
+    assert.ok(store.lookups <= 200);
+    assert.ok(result.warnings.some(({ code }) => code === "SUPERSESSION_UNRESOLVED"));
+  }
+  const ordinary = new CountingStore([
+    frame("ordinary", "2026-07-01T00:00:00Z", "work", "Current"),
+  ]);
+  await buildSessionContext({ branch: "work", maxTokens: 2000 }, ordinary);
+  assert.equal(ordinary.lookups, 0, "ordinary context needs no additional ID lookups");
+  const noMatch = new CountingStore([
+    { ...frame("old", "2026-07-01T00:00:00Z", "work", "Other topic"), superseded_by: "target" },
+  ]);
+  const empty = await buildSessionContext(
+    { branch: "work", query: "absent", maxTokens: 2000 },
+    noMatch
+  );
+  assert.equal(empty.frames.length, 0);
+  assert.equal(noMatch.lookups, 0);
+});
+
 test("context returns an exact match but never falls back for the Milestone 1 shared-token no-match", async () => {
   const timestamp = "2026-08-21T18-04-37-920Z";
   const matchingQuery = `milestone-1-roundtrip-${timestamp}`;
@@ -385,7 +628,7 @@ test("context reports a missing store without creating it", async () => {
     assert.strictEqual(result.resolution.store.exists, false);
     assert.strictEqual(result.resolution.store.accessMode, "read-only");
     assert.ok(result.warnings.some((warning) => warning.code === "STORE_NOT_FOUND"));
-    assert.ok(result.warnings.some((warning) => warning.code === "NO_FRAMES"));
+    assert.ok(!result.warnings.some((warning) => warning.code === "NO_FRAMES"));
     assert.strictEqual(result.frameWriteContract.policyState, "unavailable");
     assert.strictEqual(result.frameWriteContract.fallbackModule, "workspace/unscoped");
     assert.match(renderSessionContextText(result), /Frame write contract:/);
@@ -418,7 +661,7 @@ test("context reports unavailable PostgreSQL configuration without throwing", as
       assert.strictEqual(result.resolution.store.accessMode, "read-only");
       assert.ok(result.warnings.some((warning) => warning.code === "STORE_UNAVAILABLE"));
       assert.ok(!result.warnings.some((warning) => warning.code === "STORE_NOT_FOUND"));
-      assert.ok(result.warnings.some((warning) => warning.code === "NO_FRAMES"));
+      assert.ok(!result.warnings.some((warning) => warning.code === "NO_FRAMES"));
       assert.strictEqual(existsSync(join(projectRoot, ".smartergpt", "lex", "memory.db")), false);
     }
   } finally {
@@ -440,12 +683,21 @@ test("context opens an existing SQLite store read-only without changing its file
     await writable.saveFrame(
       frame("sqlite-context", "2026-07-14T00:00:00Z", "main", "Read-only context")
     );
+    await writable.saveFrame({
+      ...frame("sqlite-old", "2026-07-13T00:00:00Z", "work", "anchor"),
+      superseded_by: "sqlite-context",
+    });
     await writable.close();
     const before = storeSnapshot(dbPath);
 
-    const result = await buildSessionContext({ projectRoot, branch: "main", maxTokens: 1200 });
+    const result = await buildSessionContext({
+      projectRoot,
+      branch: "work",
+      query: "anchor",
+      maxTokens: 1200,
+    });
 
-    assert.strictEqual(result.schemaVersion, "1.3.0");
+    assert.strictEqual(result.schemaVersion, "1.4.0");
     assert.strictEqual(result.resolution.store.accessMode, "read-only");
     assert.strictEqual(result.frames[0]?.id, "sqlite-context");
     assert.ok(!result.warnings.some((warning) => warning.code === "STORE_UNAVAILABLE"));

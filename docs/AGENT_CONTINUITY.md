@@ -16,7 +16,10 @@ lex context "authentication refresh" --max-tokens 800
 store identity, policy state, selection strategy, warnings, and output budget. It does not create
 or migrate the selected store.
 
-JSON context schema 1.3.0 preserves task summaries and return points before opaque
+Context schema 1.4.0 adds explicit supersession resolution and `SUPERSESSION_UNRESOLVED`
+warnings. Query matching selects initial candidates; their returned replacements may
+use different wording. This retains the JSON budgeting introduced in 1.3.0, which
+preserves task summaries and return points before opaque
 provenance when the output budget is tight. A retained Frame may report
 `provenanceOmitted: true`; `budget.truncated` then remains true even when
 `budget.omittedFrames` is zero. Full provenance remains in the stored Frame and can be
@@ -29,8 +32,25 @@ The final budget line describes output-budget omissions, not field clipping. Fol
 Frame ID when a clipped next action or missing evidence matters; do not treat the compact
 projection as a complete record. Provenance stays inline in JSON when it fits.
 
-When a query is supplied, every normalized query term must match a Frame before branch, workspace
-module overlap, and recency can rank it. Prefix matching remains available, but an unmatched or
+When a query is supplied, every normalized query term must match an initial candidate before branch,
+workspace module overlap, and recency rank it. A candidate's explicit `superseded_by` links are then
+followed through the same selected store. Only its terminal replacement is returned, even if that
+replacement uses different wording or belongs to another branch. Its `whySelected` reports
+`supersession-replacement`, rather than claiming it directly matched the query or branch. Multiple
+paths to the same replacement occupy one result slot. No extra ID lookups are made for candidates
+without supersession links.
+
+Missing replacements, self-links, cycles, or traversal exhaustion omit the retired content and
+produce `SUPERSESSION_UNRESOLVED`. Resolution allows at most 20 links per candidate and 200 new ID
+lookups per context request, caching lookups within that request. An unavailable replacement may
+be outside the selected store's scope; context does not search another store or reuse retired
+guidance. Use explicit full recall to inspect historical links. Lookup failures report store
+unavailability without returning partially resolved or retired content. Stored history is unchanged;
+recorded succession does not prove the replacement's claims or an atomic snapshot.
+`NO_FRAMES` describes a successful empty read; an unavailable store or failed resolution read
+reports its availability error instead of claiming that no matching history exists.
+
+Prefix matching remains available, but an unmatched or
 empty normalized query returns no Frames; it never falls back to unrelated recent continuity.
 Queries containing terms unsupported by the shared search normalizer also fail closed rather than
 silently dropping those terms. Broader fuzzy recall remains an explicit `lex recall --mode any`
