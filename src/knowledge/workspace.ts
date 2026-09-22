@@ -69,6 +69,8 @@ export interface KnowledgeIndexResultV1 {
 export interface KnowledgeContextRecordV1 {
   readonly id: string;
   readonly type: KnowledgeFrameV1["type"];
+  /** Present exactly for hypotheses; the stored qualitative assessment, not a probability. */
+  readonly confidence?: Extract<KnowledgeFrameV1, { type: "hypothesis" }>["confidence"];
   readonly lifecycle: KnowledgeFrameV1["lifecycle"];
   readonly title: string;
   readonly body: string;
@@ -473,6 +475,7 @@ export function buildKnowledgeContext(
     const projection: KnowledgeContextRecordV1 = {
       id: record.id,
       type: record.type,
+      ...(record.type === "hypothesis" ? { confidence: record.confidence } : {}),
       lifecycle: record.lifecycle,
       title: record.title,
       body: record.body,
