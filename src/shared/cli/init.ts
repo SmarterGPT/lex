@@ -7,7 +7,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
-import inquirer from "inquirer";
+import { promptForFirstFrameSummary } from "./interactive-prompts.js";
 import * as output from "./output.js";
 import { discoverModules, generatePolicyFile } from "./policy-generator.js";
 import { AXErrorException } from "../errors/ax-error.js";
@@ -528,28 +528,12 @@ function showMCPGuidance(
  */
 async function promptFirstFrame(_baseDir: string): Promise<void> {
   try {
-    const answers = await inquirer.prompt([
-      {
-        type: "confirm",
-        name: "createFirstFrame",
-        message: "Would you like to create your first Frame to test Lex?",
-        default: false,
-      },
-    ]);
+    const summary = await promptForFirstFrameSummary();
 
-    if (answers.createFirstFrame) {
-      const frameAnswers = await inquirer.prompt([
-        {
-          type: "input",
-          name: "summary",
-          message: "What are you working on?",
-          validate: (input: string) => input.trim().length > 0 || "Please provide a summary",
-        },
-      ]);
-
+    if (summary !== undefined) {
       output.info("");
       output.info("Creating your first Frame...");
-      output.info(`Summary: ${frameAnswers.summary}`);
+      output.info(`Summary: ${summary}`);
       output.info("");
       output.info("✓ Frame created! Run 'lex recall' next session to retrieve this context.");
       output.info("");

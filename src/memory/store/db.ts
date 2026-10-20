@@ -10,6 +10,21 @@
  */
 
 import Database from "better-sqlite3-multiple-ciphers";
+
+/**
+ * Public cipher handle preserved from the driver's v12 declarations.
+ * The normal @types alias supplies the common API because v13's exports map
+ * hides its bundled declarations under NodeNext; runtime selection is unchanged.
+ */
+export interface CipherDatabase extends Database.Database {
+  key(key: Buffer): number;
+  rekey(key: Buffer): number;
+}
+
+const NativeDatabase = Database as unknown as {
+  new (filename?: string | Buffer, options?: Database.Options): CipherDatabase;
+};
+
 import { dirname } from "path";
 import { mkdirSync, existsSync, readFileSync, statSync } from "fs";
 import { pbkdf2Sync } from "crypto";
@@ -388,10 +403,10 @@ function normalizeDetachedSnapshotJournalMode(snapshot: Buffer): Buffer {
 }
 
 /** Open one already-captured SQLite snapshot without mutating its source bytes. */
-export function openDatabaseSnapshotReadOnly(snapshot: Buffer): Database.Database {
-  let db: Database.Database | undefined;
+export function openDatabaseSnapshotReadOnly(snapshot: Buffer): CipherDatabase {
+  let db: CipherDatabase | undefined;
   try {
-    db = new Database(normalizeDetachedSnapshotJournalMode(Buffer.from(snapshot)));
+    db = new NativeDatabase(normalizeDetachedSnapshotJournalMode(Buffer.from(snapshot)));
     db.pragma("query_only = ON");
     return db;
   } catch (error) {
@@ -410,7 +425,7 @@ export function openDatabaseSnapshotReadOnly(snapshot: Buffer): Database.Databas
  * This path deliberately does not create directories, initialize schema, apply
  * migrations, or set file-backed pragmas such as journal_mode.
  */
-export function openDetachedDatabaseReadOnly(dbPath: string): Database.Database {
+export function openDetachedDatabaseReadOnly(dbPath: string): CipherDatabase {
   if (dbPath.startsWith("file:")) {
     throw new ReadOnlyDatabaseError(
       "STORE_UNAVAILABLE",
@@ -464,12 +479,12 @@ export function inspectDatabaseSchemaReadOnly(dbPath: string): SqliteSchemaInspe
  * This configures encryption and connection-local safety settings but never
  * initializes or migrates schema.
  */
-export function openDatabaseForMaintenance(dbPath: string): Database.Database {
+export function openDatabaseForMaintenance(dbPath: string): CipherDatabase {
   if (!dbPath || dbPath === ":memory:" || dbPath.startsWith("file:") || !existsSync(dbPath)) {
     throw new Error(`SQLite maintenance requires an existing filesystem database: ${dbPath}.`);
   }
 
-  const db = new Database(dbPath, { fileMustExist: true });
+  const db = new NativeDatabase(dbPath, { fileMustExist: true });
   try {
     configureEncryption(db);
     db.pragma("busy_timeout = 5000");
@@ -487,7 +502,7 @@ export function openDatabaseForMaintenance(dbPath: string): Database.Database {
  * This path deliberately does not create directories, initialize schema, apply
  * migrations, or set file-backed pragmas such as journal_mode.
  */
-export function openDatabaseReadOnly(dbPath: string): Database.Database {
+export function openDatabaseReadOnly(dbPath: string): CipherDatabase {
   const db = openDetachedDatabaseReadOnly(dbPath);
   try {
     const inspection = inspectSqliteSchema(db);
@@ -1287,12 +1302,12 @@ function applyMigrationV8(db: Database.Database): void {
  * @param dbPath - Optional database file path (defaults to getDefaultDbPath())
  * @returns Initialized database connection
  */
-export function createDatabase(dbPath?: string): Database.Database {
+export function createDatabase(dbPath?: string): CipherDatabase {
   const path = dbPath || getDefaultDbPath();
   if (path !== ":memory:" && !path.startsWith("file:")) {
     mkdirSync(dirname(path), { recursive: true });
   }
-  const db = new Database(path);
+  const db = new NativeDatabase(path);
 
   try {
     // Apply encryption if key is available

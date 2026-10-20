@@ -115,8 +115,9 @@ Ready to test the claim? Store one non-sensitive checkpoint, start a fresh sessi
 it can continue without having the work explained again.
 
 Requires Node.js 24 or newer. Lex does not impose an unproven upper bound. Existing users should
-follow the [Lex 4.4 migration and recovery guide](docs/releases/lex-4.4-migration.md), including the
-native SQLite rebuild step.
+follow the [Lex 4.4 migration and recovery guide](docs/releases/lex-4.4-migration.md) and
+[verify the bundled SQLite binary](docs/dev/sqlite-bindings.md). Lex 4.4.3 requires no native rebuild
+step; Linux glibc installations require glibc 2.35 or newer.
 
 This approved pilot writes one Frame to the local SQLite store under `.smartergpt/lex/`. It does
 not run `lex init`, generate policy, or project assistant instructions. Use a disposable branch,

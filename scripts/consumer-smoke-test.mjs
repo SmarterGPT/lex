@@ -14,6 +14,8 @@ const testDir = fs.mkdtempSync(path.join(os.tmpdir(), "lex-consumer-smoke-"));
 const sourcePackageJson = JSON.parse(fs.readFileSync(path.join(repoRoot, "package.json"), "utf8"));
 let tarballPath;
 let ownsTarball = true;
+const ignoreScripts = process.argv.includes("--ignore-scripts");
+const installFlags = ["--no-audit", "--no-fund", ...(ignoreScripts ? ["--ignore-scripts"] : [])];
 
 function run(command, args, { cwd = repoRoot, capture = false } = {}) {
   return execFileSync(command, args, {
@@ -55,7 +57,7 @@ try {
   console.log("==> Installing the tarball into a clean consumer");
   runNpm(["init", "--yes"], { cwd: testDir });
   runNpm(["pkg", "set", "type=module", "private=true"], { cwd: testDir });
-  runNpm(["install", tarballPath, "--no-audit", "--no-fund"], { cwd: testDir });
+  runNpm(["install", tarballPath, ...installFlags], { cwd: testDir });
 
   const packageRoot = path.join(testDir, "node_modules", "@smartergpt", "lex");
   const packageJson = JSON.parse(fs.readFileSync(path.join(packageRoot, "package.json"), "utf8"));
@@ -76,6 +78,7 @@ try {
     "public-api-contract.mjs",
     "verify-public-api.mjs",
     "verify-sharp-runtime.mjs",
+    "verify-sqlite-runtime.mjs",
   ]) {
     fs.copyFileSync(path.join(repoRoot, "scripts", script), path.join(testDir, script));
   }
@@ -96,6 +99,19 @@ try {
 
   console.log("==> Exercising the installed image-rendering runtime");
   run(process.execPath, ["verify-sharp-runtime.mjs", packageRoot], { cwd: testDir });
+
+  console.log("==> Verifying the installed lifecycle/native dependency boundary");
+  run(process.execPath, ["verify-sqlite-runtime.mjs", packageRoot], { cwd: testDir });
+  fs.appendFileSync(
+    path.join(testDir, "public-api-consumer.ts"),
+    `
+import { createDatabase, getDb, SqliteFrameStore } from "@smartergpt/lex/store";
+function cipherHandleTypes(db: ReturnType<typeof createDatabase>, singleton: ReturnType<typeof getDb>, store: SqliteFrameStore): number[] {
+  return [db.key(Buffer.alloc(32)), db.rekey(Buffer.alloc(32)), singleton.key(Buffer.alloc(32)), store.db.rekey(Buffer.alloc(32))];
+}
+export { cipherHandleTypes };
+`
+  );
 
   console.log("==> Type-checking all declared exports from the packed package");
   run(
@@ -119,7 +135,7 @@ try {
   console.log("==> Running the published consumer example");
   const consumerDir = path.join(testDir, "consumer-example");
   fs.cpSync(path.join(repoRoot, "examples", "consumer"), consumerDir, { recursive: true });
-  runNpm(["install", tarballPath, "--no-audit", "--no-fund"], { cwd: consumerDir });
+  runNpm(["install", tarballPath, ...installFlags], { cwd: consumerDir });
   const consumerPackageJson = JSON.parse(
     fs.readFileSync(path.join(consumerDir, "package.json"), "utf8")
   );

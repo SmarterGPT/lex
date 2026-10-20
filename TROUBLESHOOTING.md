@@ -105,27 +105,18 @@ npm run test:all           # All tests
 
 ### Native Dependencies Fail
 
-**Problem:**
-`better-sqlite3-multiple-ciphers` (our SQLite binding) fails to load, often manifesting as mass test failures (100+ tests failing with SQLite-related errors).
+For current Lex 4.4.3 guidance, use [SQLite Native Bindings](docs/dev/sqlite-bindings.md).
+The exact SQLite 13.0.3 dependency ships Node-API binaries, so the old automatic rebuild advice
+no longer applies. Verify Node.js 24 or newer and the supported platform/C library, then run:
 
-**Common Symptoms:**
-- Tests that worked yesterday suddenly fail in bulk
-- Error messages mentioning `better-sqlite3`, `SQLITE`, or native bindings
-- Errors after Node.js version changes or `npm ci`
-
-**Quick Fix:**
 ```bash
-npm run check-sqlite   # Diagnose the problem
-npm run rebuild-sqlite # Recompile for current Node
+npm ci --ignore-scripts
+npm run check-sqlite
 ```
 
-**Full Documentation:** See [`docs/dev/sqlite-bindings.md`](docs/dev/sqlite-bindings.md) for:
-- Why native bindings break
-- Common scenarios and fixes
-- CI integration details
-- Troubleshooting guide
-
-**Doctrine:** We treat broken bindings as a failing gate, not a shrug.
+`npm run rebuild-sqlite` is now a compatibility alias for that health check. It does not compile
+a module. Preserve a failed check and its package identity; do not silently add a source-build or
+download fallback. The health check uses disposable databases and does not repair a live store.
 
 ---
 

@@ -54,22 +54,22 @@ not npm's `_npx` cache.
 
 ## Native module requirements
 
-Lex uses `better-sqlite3-multiple-ciphers`, a native addon built for the active operating system,
-architecture, and Node.js ABI. Install dependencies independently in WSL and Windows.
+Lex 4.4.3 pins `better-sqlite3-multiple-ciphers` 13.0.3, which ships Node-API binaries
+for Linux x64/arm64 (glibc or musl), Windows x64/arm64 and macOS x64/arm64. Lex requires
+Node.js 24 or newer; the Linux glibc binaries require glibc 2.35 or newer. This upstream inventory
+does not mean every combination has passed Lex release qualification.
 
-Ubuntu/WSL build prerequisites:
-
-```bash
-sudo apt-get update
-sudo apt-get install build-essential python3
-```
-
-After changing Node.js versions in a checkout:
+Install dependencies independently in WSL and Windows. A normal packaged installation does not
+require build tools, a download helper or a rebuild after switching supported Node versions.
+To verify a contributor checkout with lifecycle scripts disabled:
 
 ```bash
-npm run rebuild-sqlite
+npm ci --ignore-scripts
 npm run check-sqlite
 ```
+
+The old `npm run rebuild-sqlite` command now aliases the check. A failed or unsupported binary
+stays a failed check; do not silently compile a replacement or copy Windows `node_modules` into WSL.
 
 See [SQLite Native Bindings](./dev/sqlite-bindings.md) for detailed failure modes.
 

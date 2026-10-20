@@ -12,7 +12,7 @@
  *   const results = await searchFrames(db, 'auth deadlock');
  */
 
-import Database from "better-sqlite3-multiple-ciphers";
+import type { CipherDatabase } from "./db.js";
 import { createDatabase, getDefaultDbPath } from "./db.js";
 
 export type { FrameRow, CodeAtlasRunRow, ReadOnlyDatabaseErrorCode } from "./db.js";
@@ -316,14 +316,14 @@ export type {
 export { LEXSONA_DEFAULTS } from "./lexsona-types.js";
 
 // Singleton database instance
-let dbInstance: Database.Database | null = null;
+let dbInstance: CipherDatabase | null = null;
 let dbPath: string | null = null;
 
 /**
  * Get or create the database instance
  * @param customPath Optional custom database path (defaults to ~/.lex/frames.db)
  */
-export function getDb(customPath?: string): Database.Database {
+export function getDb(customPath?: string): CipherDatabase {
   const targetPath = customPath || getDefaultDbPath();
 
   // Create new instance if path changed or no instance exists
@@ -382,7 +382,7 @@ export {
   DATABASE_SCHEMA_VERSION,
   ReadOnlyDatabaseError,
 } from "./db.js";
-export type { PassphraseValidationResult } from "./db.js";
+export type { CipherDatabase, PassphraseValidationResult } from "./db.js";
 
 // Export SQLite store implementations
 export { SqliteCodeAtlasStore } from "./sqlite/index.js";

@@ -8,6 +8,8 @@ See [release notes](docs/releases/lex-4.4.3.md) and the [migration and recovery 
 
 - 3d7c605: Expose payload-free authorized workspace destination inspection and matching CLI/MCP save receipts. Trusted PostgreSQL hosts can supply verified backend evidence; injected Pools without evidence now report an explicit unknown backend and a per-instance diagnostic reference instead of a misleading shared placeholder identity. Optional expected-destination binding rejects destination or authority drift before writes.
 
+- Pin SQLite 13.0.3 bundled Node-API binaries, remove Lex's postinstall hint, and use standalone input/confirm prompts. Preserve public cipher-handle types and qualify normal plus lifecycle-disabled packed installs. Linux glibc now requires >=2.35; Windows x86 and Linux armv7 are unsupported. Synthetic plaintext/SQLCipher fixtures retain schema and key compatibility on qualified platforms.
+
 ## 4.4.2
 
 ### Patch Changes
