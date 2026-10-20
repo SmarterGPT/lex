@@ -116,7 +116,7 @@ it can continue without having the work explained again.
 
 Requires Node.js 24 or newer. Lex does not impose an unproven upper bound. Existing users should
 follow the [Lex 4.4 migration and recovery guide](docs/releases/lex-4.4-migration.md) and
-[verify the bundled SQLite binary](docs/dev/sqlite-bindings.md). Lex 4.4.3 requires no native rebuild
+[verify the bundled SQLite binary](docs/dev/sqlite-bindings.md). Lex 4.4.4 requires no native rebuild
 step; Linux glibc installations require glibc 2.35 or newer.
 
 This approved pilot writes one Frame to the local SQLite store under `.smartergpt/lex/`. It does
@@ -302,10 +302,10 @@ rather than reconstructing them from ambient environment variables.
 
 ## Project status
 
-**Current Version:** `4.4.3`
+**Current Version:** `4.4.4`
 
-Lex 4.4.3 adds verified workspace destination preflight and matching save receipts. See the
-[4.4.3 release notes](./docs/releases/lex-4.4.3.md), the
+Lex 4.4.4 corrects Windows root comparison in trusted workspace destination preflight and
+save receipts. See the [4.4.4 release notes](./docs/releases/lex-4.4.4.md), the
 [4.4 release notes](./docs/releases/lex-4.4.md) and
 [migration guide](./docs/releases/lex-4.4-migration.md). Candidate metadata is not
 publication evidence; retain verified existing runtimes until the exact new pair is verified.

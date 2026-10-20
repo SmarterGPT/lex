@@ -1,5 +1,13 @@
 # Changelog
 
+## 4.4.4
+
+### Patch Changes
+
+See [release notes](docs/releases/lex-4.4.4.md) and the [migration and recovery guide](docs/releases/lex-4.4-migration.md).
+
+- e10c5cb: Normalize destination roots using trusted captured execution-surface evidence. Accept equivalent Windows lexical path spelling and case without relaxing tenant, workspace, backend, binding, authority or expected-destination checks. Keep POSIX paths case-sensitive and direct three-argument snapshot callers conservative. Re-inspect expected destination identities after upgrading; no store or schema migration is required.
+
 ## 4.4.3
 
 ### Patch Changes

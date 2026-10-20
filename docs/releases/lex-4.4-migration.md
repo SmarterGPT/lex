@@ -1,6 +1,6 @@
 # Lex 4.4 migration and recovery
 
-Node 24 or newer remains required. Use the exact verified Lex/Lex-MCP 4.4.3 pair
+Node 24 or newer remains required. Use the exact verified Lex/Lex-MCP 4.4.4 pair
 after publication. This release introduces no store/schema migration. Preserve
 existing data, credentials, bindings and runtime locks.
 
@@ -21,22 +21,23 @@ provenance, signed tags and the matching wrapper. Publishing does not replace an
 installed scoped runtime or authorize reducing verification coverage. Keep that
 activation separate and qualified against the real consumer.
 
-The existing public 4.4.2 package pair remains available as the package recovery baseline.
-An installed scoped 4.2.0 runtime may remain pinned until its own update is qualified.
+The existing public 4.4.2 package pair remains available as a package recovery baseline.
+Keep each host's last qualified installed runtime and exact lock until its update is
+qualified. Package availability is not proof that a specific installed host works.
 On artifact, database identity or authority mismatch, stop and retain the evidence;
 do not recreate stores, rewrite public versions or silently downgrade authority.
 
 The deprecated transport still returns `LEX_MCP_LEGACY_ENTRYPOINT_REMOVED`.
-Use `@smartergpt/lex-mcp@4.4.3` only after the exact pair is verified; preserve explicit
+Use `@smartergpt/lex-mcp@4.4.4` only after the exact pair is verified; preserve explicit
 `LEX_POSTGRES_PASSWORD` forwarding from the host's existing secret source. Do not
 print credentials. See the [4.3 recovery matrix](lex-4.3-migration.md) for unchanged
 partial-publication and consumer-failure procedures.
 
-The exact core package is `@smartergpt/lex@4.4.3`. An explicitly qualified host may use:
+The exact core package is `@smartergpt/lex@4.4.4`. An explicitly qualified host may use:
 
 ```toml
 command = "npx"
-args = ["--yes", "@smartergpt/lex-mcp@4.4.3"]
+args = ["--yes", "@smartergpt/lex-mcp@4.4.4"]
 env_vars = ["LEX_POSTGRES_PASSWORD"]
 ```
 
@@ -55,8 +56,39 @@ signing prompts remain with the signer. Do not substitute a local token or repac
 | SCRAM says the password must be a string                                            | Check explicit `LEX_POSTGRES_PASSWORD` forwarding without printing it. Preserve the selected store and authentication.             |
 | Workspace, branch, or credential-free store identity is unexpected                  | Stop store access and reconcile identity before mutation.                                                                          |
 | Quarantined legacy Frames exist                                                     | Use the existing explicit inspect/plan/apply workflow from the 4.0 guide. Installation grants no repair permission.                |
-| A dependent lock still resolves Lex 3.0.1 or another version                        | Refresh it from exact verified public Lex 4.4.3 bytes; reject directory links or mismatched integrity as release evidence.         |
+| A dependent lock still resolves Lex 3.0.1 or another version                        | Refresh it from exact verified public Lex 4.4.4 bytes; reject directory links or mismatched integrity as release evidence.         |
 | Lex is public but its tag, Lex-MCP, GitHub release, or Registry entry is incomplete | Preserve the verified immutable artifact and finish stages in dependency order. Never replace public bytes under the same version. |
 | Native Windows or another downstream packed consumer fails                          | Stop publication or sealing at that stage and retain the failing command and exact artifact identity.                              |
 
-For the optional trusted-host destination preflight and expected write binding, see [4.4.3 release notes](lex-4.4.3.md) and [destination provenance](../DESTINATION_PROVENANCE.md). No store migration or repair is required. An unverified injected Pool now has a per-instance diagnostic reference; only explicit trusted host verification supports a stable destination restriction.
+## Windows destination recovery
+
+Lex 4.4.3 compared destination roots as raw strings. A registry root recorded in
+lowercase could disagree with discovery's case-preserving Windows path and reject
+an otherwise active binding. Do not change store roots, recreate a binding or
+relax authority to work around that failure.
+
+Lex 4.4.4 uses the execution surface captured by trusted CLI/MCP bootstrap to
+normalize lexical root comparison and destination identity. Equivalent Windows
+path spelling and case compare consistently; different roots remain different and
+POSIX paths remain case-sensitive. This does not prove physical path identity,
+resolve symlinks or equate different UNC aliases. Frame/MCP request payloads and
+ambient environment variables do not supply destination authority.
+
+After upgrading, run authorized destination preflight and reconcile roots,
+backend, tenant, workspace and binding before saving. Canonical Windows root
+identity can change a previously captured expected-destination hash. Obtain a
+fresh expected binding only after verifying the snapshot; never silently rebind
+or retry a rejected write without checking its destination. Keep the previous
+qualified runtime recoverable until the exact new pair passes native Windows
+preflight, save and read-back on the intended host.
+
+Direct library hosts may supply the optional fourth `createDestinationSnapshot`
+argument with trusted captured execution-surface evidence. Existing three-argument
+callers retain conservative raw root equality. No Frame schema, database, cipher
+or key-derivation migration is required.
+
+See [4.4.4 release notes](lex-4.4.4.md) and the
+[destination provenance contract](../DESTINATION_PROVENANCE.md). The immutable
+[4.4.3 notes](lex-4.4.3.md) retain the original destination and native-driver changes.
+An unverified injected Pool still has a per-instance diagnostic reference; only
+explicit trusted host verification supports a stable destination restriction.
