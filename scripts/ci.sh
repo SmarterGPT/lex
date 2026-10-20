@@ -26,10 +26,7 @@ export npm_config_audit=false
 echo "==> npm ci (ignore postinstall)"
 npm ci --ignore-scripts
 
-# Rebuild native deps and validate bindings
-echo "==> rebuilding native SQLite bindings"
-npm run rebuild-sqlite || true
-
+# Verify bundled Node-API binary without lifecycle scripts or a source-build fallback
 echo "==> checking SQLite bindings health"
 npm run check-sqlite
 

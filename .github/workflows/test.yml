@@ -42,8 +42,8 @@ jobs:
       - name: Install dependencies (hermetic)
         run: npm ci --ignore-scripts
 
-      - name: Build native dependencies
-        run: npm rebuild better-sqlite3-multiple-ciphers
+      - name: Verify bundled SQLite native binary
+        run: npm run check-sqlite
 
       - name: Initialize working files
         run: npm run setup-local
@@ -76,8 +76,8 @@ jobs:
       - name: Install dependencies (hermetic)
         run: npm ci --ignore-scripts
 
-      - name: Build native dependencies
-        run: npm rebuild better-sqlite3-multiple-ciphers
+      - name: Verify bundled SQLite native binary
+        run: npm run check-sqlite
 
       - name: Initialize working files
         run: npm run setup-local
@@ -109,8 +109,8 @@ jobs:
       - name: Install dependencies (hermetic)
         run: npm ci --ignore-scripts
 
-      - name: Build native dependencies
-        run: npm rebuild better-sqlite3-multiple-ciphers
+      - name: Verify bundled SQLite native binary
+        run: npm run check-sqlite
 
       - name: Initialize working files
         run: npm run setup-local

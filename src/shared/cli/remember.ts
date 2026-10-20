@@ -13,7 +13,7 @@ import {
   DestinationBindingError,
   type DestinationSnapshotV1,
 } from "../runtime-scope/destination.js";
-import inquirer from "inquirer";
+import { promptForFrameData } from "./interactive-prompts.js";
 import { v4 as uuidv4 } from "uuid";
 import type { CallerProvenance, Frame } from "../types/frame.js";
 import { validateModuleIds } from "../module_ids/index.js";
@@ -194,8 +194,8 @@ export async function remember(
 
     // If interactive mode or missing required fields (non-JSON), prompt for input
     const answers =
-      options.interactive || !options.summary || !options.modules
-        ? await promptForFrameData(options, branch)
+      !options.json && (options.interactive || !options.summary || !options.modules)
+        ? await promptForFrameData(options)
         : applyDefaults(options);
 
     // Resolve explicit, inferred, or fallback module attribution before validation.
@@ -448,107 +448,5 @@ function applyDefaults(options: RememberOptions): RememberOptions {
     referencePoint: options.referencePoint ?? "",
     next: options.next ?? "",
     // All other optional fields default to undefined (omitted from Frame)
-  };
-}
-
-/**
- * Prompt user for Frame metadata interactively
- */
-async function promptForFrameData(
-  options: RememberOptions,
-  _currentBranch: string
-): Promise<RememberOptions> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const questions: any[] = [];
-
-  // Only prompt for REQUIRED fields when not in full interactive mode
-  const fullInteractive = options.interactive;
-
-  if (fullInteractive && !options.jira) {
-    questions.push({
-      type: "input",
-      name: "jira",
-      message: "Jira ticket (optional):",
-    });
-  }
-
-  if (!options.referencePoint) {
-    questions.push({
-      type: "input",
-      name: "referencePoint",
-      message: "Reference point (memorable phrase, optional):",
-      default: "",
-    });
-  }
-
-  if (!options.summary) {
-    questions.push({
-      type: "input",
-      name: "summary",
-      message: "Summary (one-line description):",
-      validate: (input: string) => input.trim().length > 0 || "Summary is required",
-    });
-  }
-
-  if (!options.next) {
-    questions.push({
-      type: "input",
-      name: "next",
-      message: "Next action (optional):",
-      default: "",
-    });
-  }
-
-  if (!options.modules) {
-    questions.push({
-      type: "input",
-      name: "modules",
-      message: "Module scope (comma-separated):",
-      filter: (input: string) =>
-        input
-          .split(",")
-          .map((m) => m.trim())
-          .filter((m) => m.length > 0),
-      validate: (input: string[]) => input.length > 0 || "At least one module is required",
-    });
-  }
-
-  // Only prompt for optional fields in full interactive mode
-  if (fullInteractive && !options.blockers) {
-    questions.push({
-      type: "input",
-      name: "blockers",
-      message: "Blockers (comma-separated, optional):",
-      filter: (input: string) => {
-        if (!input.trim()) return undefined;
-        return input
-          .split(",")
-          .map((b) => b.trim())
-          .filter((b) => b.length > 0);
-      },
-    });
-  }
-
-  if (fullInteractive && !options.mergeBlockers) {
-    questions.push({
-      type: "input",
-      name: "mergeBlockers",
-      message: "Merge blockers (comma-separated, optional):",
-      filter: (input: string) => {
-        if (!input.trim()) return undefined;
-        return input
-          .split(",")
-          .map((b) => b.trim())
-          .filter((b) => b.length > 0);
-      },
-    });
-  }
-
-  const answers = questions.length > 0 ? await inquirer.prompt(questions) : {};
-
-  // Merge with provided options (provided options take precedence)
-  return {
-    ...answers,
-    ...options,
   };
 }

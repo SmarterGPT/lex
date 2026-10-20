@@ -68,6 +68,18 @@ const definitions = [
     evidence: "Exact retained tarball installed into disposable consumers and exercised",
   },
   {
+    name: "packed-consumer-smoke-ignore-scripts",
+    command: process.execPath,
+    args: [
+      path.join(repoRoot, "scripts", "consumer-smoke-test.mjs"),
+      "--candidate",
+      receiptPath,
+      "--ignore-scripts",
+    ],
+    evidence:
+      "Exact retained tarball exercised after lifecycle-disabled installs without rebuilding native code",
+  },
+  {
     name: "npm-publish-dry-run",
     command: process.execPath,
     args: [path.join(repoRoot, "scripts", "verify-npm-publishability.mjs")],

@@ -157,7 +157,7 @@ jobs:
           node-version: "24"
           cache: "npm"
       - run: npm ci --ignore-scripts
-      - run: npm rebuild better-sqlite3-multiple-ciphers
+      - run: npm run check-sqlite
       - run: bash scripts/setup-local.sh
       - run: npm run build
       - run: npm run validate-schemas
@@ -178,7 +178,7 @@ jobs:
           node-version: "24"
           cache: "npm"
       - run: npm ci --ignore-scripts
-      - run: npm rebuild better-sqlite3-multiple-ciphers
+      - run: npm run check-sqlite
       - run: npm run setup-local
       - run: npm run build
       - run: npm run test:integration

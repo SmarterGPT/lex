@@ -156,3 +156,17 @@ test("atomic receipt writer rejects an existing receipt link", (t) => {
     fs.rmSync(fixture.root, { recursive: true, force: true });
   }
 });
+
+test("six-gate receipts cannot skip lifecycle-disabled packed consumer qualification", () => {
+  const fixture = createFixture();
+  try {
+    fixture.receipt.artifactStatus = "verified";
+    fixture.receipt.verifiedAt = new Date().toISOString();
+    fixture.receipt.gates = requiredCandidateGates
+      .filter((name) => name !== "packed-consumer-smoke-ignore-scripts")
+      .map(successfulGate);
+    assert.throws(() => assertArtifactVerified(fixture.receipt), /exact required/);
+  } finally {
+    fs.rmSync(fixture.root, { recursive: true, force: true });
+  }
+});

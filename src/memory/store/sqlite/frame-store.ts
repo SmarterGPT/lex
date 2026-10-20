@@ -18,7 +18,7 @@ import type {
   FrameStoreHealth,
 } from "../frame-store.js";
 import type { Frame, FrameStatusSnapshot, FrameSpendMetadata } from "../../frames/types.js";
-import type { FrameRow } from "../db.js";
+import type { CipherDatabase, FrameRow } from "../db.js";
 import { Frame as FrameSchema } from "../../frames/types.js";
 import { createDatabase, openDatabaseReadOnly } from "../db.js";
 import { normalizeFTS5Query } from "../fts5-utils.js";
@@ -145,7 +145,7 @@ function rowToFrame(row: FrameRow): Frame {
  * Handles connection lifecycle management with proper cleanup.
  */
 export class SqliteFrameStore implements FrameStore {
-  private _db: Database.Database;
+  private _db: CipherDatabase;
   private _databasePath: string;
   private _accessMode: SqliteFrameStoreAccessMode;
   private ownsConnection: boolean;
@@ -157,7 +157,7 @@ export class SqliteFrameStore implements FrameStore {
    *
    * @throws Error if the store has been closed.
    */
-  get db(): Database.Database {
+  get db(): CipherDatabase {
     if (this.isClosed) {
       throw new Error("SqliteFrameStore is closed");
     }
@@ -207,7 +207,10 @@ export class SqliteFrameStore implements FrameStore {
         );
       }
 
-      this._db = dbOrPath;
+      // Preserve the historical cipher-handle invariant without wrapping or rejecting
+      // an existing caller-supplied connection. Common-driver types alone do not
+      // guarantee that an arbitrary external connection implements key/rekey.
+      this._db = dbOrPath as CipherDatabase;
       this._databasePath = dbOrPath.name;
       this._accessMode = connectionMode;
       this.ownsConnection = false;

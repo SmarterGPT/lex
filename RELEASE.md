@@ -93,7 +93,6 @@ clean candidate:
 
 ```bash
 npm ci --ignore-scripts
-npm rebuild better-sqlite3-multiple-ciphers
 npm run check-sqlite
 npm run validate-schemas
 npm run validate-docs
@@ -225,3 +224,10 @@ Never overwrite an npm version or move a published tag.
 
 Package release recovery is not permission to initialize, repair, discover, delete, or recreate a
 Frame store. Follow the migration guide's store-specific stop conditions and recovery boundaries.
+
+
+The candidate contract includes both `packed-consumer-smoke` and
+`packed-consumer-smoke-ignore-scripts`; an older six-gate receipt is insufficient.
+Both install modes must load the bundled SQLite platform prebuild without a rebuild.
+The protected Windows smoke also repeats both modes against the retained artifact.
+See [native support boundaries](docs/dev/sqlite-bindings.md) before selecting targets.

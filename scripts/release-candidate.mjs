@@ -11,6 +11,7 @@ export const requiredCandidateGates = [
   "npm-pack",
   "pack-guard",
   "packed-consumer-smoke",
+  "packed-consumer-smoke-ignore-scripts",
   "npm-publish-dry-run",
 ];
 const preparationGateNames = requiredCandidateGates.slice(0, 3);

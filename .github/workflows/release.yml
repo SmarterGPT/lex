@@ -136,9 +136,6 @@ jobs:
       - name: Install dependencies without lifecycle scripts
         run: npm ci --ignore-scripts
 
-      - name: Build native dependencies
-        run: npm rebuild better-sqlite3-multiple-ciphers
-
       - name: Run the full gate
         run: |
           npm run check-sqlite
@@ -227,11 +224,15 @@ jobs:
           artifact-ids: ${{ needs.build-candidate.outputs.artifact-id }}
           path: .
 
-      - name: Verify receipt and run normal-lifecycle packed smoke
+      - name: Verify receipt and run normal and lifecycle-disabled packed smoke
         shell: pwsh
         run: |
           node scripts/verify-release-candidate.mjs --check-only
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node scripts/consumer-smoke-test.mjs --candidate release-candidate.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node scripts/consumer-smoke-test.mjs --candidate release-candidate.json --ignore-scripts
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
   publish-npm:
     name: Publish exact candidate to npm
