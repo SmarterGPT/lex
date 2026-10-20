@@ -16,6 +16,8 @@
   and store scope, and expose coverage in context schema 1.5.0. Add exact branch search
   filters and apply SQLite module filters before the result limit. Output budgets and
   explicit supersession behavior are preserved.
+- Refresh the locked runtime and release-tool dependencies to their patched versions,
+  including Axios 1.20.0, proxy-addr 2.0.8, Sharp 0.35.5, and Changesets 3.0.3.
 
 ## 4.4.1
 

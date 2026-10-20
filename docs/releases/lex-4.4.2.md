@@ -18,6 +18,11 @@ KnowledgeFrame hypothesis context now includes the stored low, medium, or high
 confidence value before byte budgeting. Other record types omit confidence, and a
 hypothesis that cannot fit is omitted whole.
 
+The locked dependency graph is refreshed to patched runtime and release-tool
+versions after the release audit detected new Axios, proxy, image-processing, and
+glob advisories. The resulting lock passes `npm audit --audit-level=high` with no
+remaining vulnerabilities.
+
 No store migration is needed. Retain the previously qualified 4.4.1 runtime lock
 for rollback; activate the new package pair only after consumer qualification. The
 exact Lex-MCP 4.4.2 wrapper must depend on public Lex 4.4.2. This document is
