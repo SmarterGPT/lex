@@ -972,7 +972,8 @@ export async function run(
             kind: metadata.backend,
             identity: metadata.backendIdentity ?? UNVERIFIED_BACKEND_IDENTITY,
             ...(metadata.namespace ? { namespace: metadata.namespace } : {}),
-          }
+          },
+          options.runtimeScope.request.bootstrap.executionSurface
         );
       }
       await options.runtimeScope.onResolved?.(result);

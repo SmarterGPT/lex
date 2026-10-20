@@ -14,6 +14,7 @@ import {
 import { run } from "../../../src/shared/cli/index.js";
 import {
   createDestinationSnapshot,
+  detectExecutionSurface,
   assertExpectedDestination,
   verifiedBackendIdentity,
   UNVERIFIED_BACKEND_IDENTITY,
@@ -288,15 +289,12 @@ function fixture() {
         cwd: root,
         argv: ["node", "lex"],
         allowedEnvironment: {},
-        platform: "win32",
+        platform: process.platform,
         capturedAt: "2026-10-20T12:00:00.000Z",
-        executionSurface: {
-          schemaVersion: 1,
-          nativePlatform: "win32",
-          kind: "windows-native",
+        executionSurface: detectExecutionSurface({
+          platform: process.platform,
           installationRef: "test-node",
-          evidenceDigest: "sha256:surface" as never,
-        },
+        }),
       },
       runtimeId: "runtime-1" as never,
       traceId: "trace-1" as never,

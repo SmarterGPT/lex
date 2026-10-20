@@ -20,6 +20,7 @@ import { run } from "../../../src/shared/cli/index.js";
 import { AXErrorException } from "../../../src/shared/errors/ax-error.js";
 import {
   DIAGNOSTIC_CONTRACT_VERSION,
+  detectExecutionSurface,
   type AuthorizedScopeV1,
   type BootstrapInputSnapshotV1,
   type CapabilityId,
@@ -136,17 +137,14 @@ const invocationRequest = {
   schemaVersion: 1 as const,
   bootstrap: {
     schemaVersion: 1,
-    cwd: "/srv/lex",
+    cwd: TEST_REPO_ROOT,
     argv: ["node", "lex"],
     allowedEnvironment: {},
-    platform: "linux",
-    executionSurface: {
-      schemaVersion: 1,
-      nativePlatform: "linux",
-      kind: "linux-native",
-      installationRef: "/usr/bin/node",
-      evidenceDigest: "sha256:surface" as ContentDigest,
-    },
+    platform: process.platform,
+    executionSurface: detectExecutionSurface({
+      platform: process.platform,
+      installationRef: process.execPath,
+    }),
     capturedAt: "2026-07-18T12:00:00.000Z",
   } as BootstrapInputSnapshotV1,
   runtimeId: "runtime-1" as RuntimeId,

@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
 import type { AuthorizedScopeV1, InvocationContextV1 } from "./runtime.js";
+import type { ExecutionSurfaceEvidenceV1 } from "./bindings.js";
+import { normalizeExecutionSurfaceIdentityPath } from "./surface.js";
 
 /** Secret-free physical backend evidence supplied only by a trusted composition host. */
 export interface VerifiedBackendIdentityV1 {
@@ -79,19 +81,49 @@ export const UNVERIFIED_BACKEND_IDENTITY: BackendIdentityV1 = Object.freeze({
   connectionClass: "unknown",
 });
 
-/** Constructed after canonical authorization; no environment or payload authority is read. */
+/**
+ * Constructed after canonical authorization; no environment or payload authority is read.
+ * The optional execution surface must come from trusted bootstrap capture. Without it,
+ * retain conservative raw-root comparison for existing three-argument callers.
+ */
 export function createDestinationSnapshot(
   invocation: InvocationContextV1,
   scope: AuthorizedScopeV1,
-  backend: DestinationBackendV1
+  backend: DestinationBackendV1,
+  executionSurface?: ExecutionSurfaceEvidenceV1
 ): DestinationSnapshotV1 {
   const binding = invocation.binding;
+  let projectRoot = invocation.projectRoot;
+  let canonicalRoot = invocation.repositoryEvidence.canonicalRoot;
+  let bindingRoot = binding?.evidence.canonicalRoot;
+  if (executionSurface) {
+    try {
+      projectRoot = normalizeExecutionSurfaceIdentityPath(
+        projectRoot,
+        executionSurface,
+        "project root"
+      );
+      canonicalRoot = normalizeExecutionSurfaceIdentityPath(
+        canonicalRoot,
+        executionSurface,
+        "repository canonical root"
+      );
+      bindingRoot = normalizeExecutionSurfaceIdentityPath(
+        bindingRoot,
+        executionSurface,
+        "binding canonical root"
+      );
+    } catch {
+      throw new DestinationBindingError("A matching authorized repository binding is required.");
+    }
+  }
+
   if (
     !binding ||
     binding.state !== "active" ||
     binding.tenantId !== scope.tenantId ||
     binding.workspaceId !== scope.workspaceId ||
-    binding.evidence.canonicalRoot !== invocation.repositoryEvidence.canonicalRoot
+    bindingRoot !== canonicalRoot
   ) {
     throw new DestinationBindingError("A matching authorized repository binding is required.");
   }
@@ -105,8 +137,8 @@ export function createDestinationSnapshot(
     backend.kind,
     backendIdentity.identity,
     backend.namespace ?? null,
-    invocation.projectRoot,
-    invocation.repositoryEvidence.canonicalRoot,
+    projectRoot,
+    canonicalRoot,
     scope.tenantId,
     scope.workspaceId,
     binding.repositoryId,
@@ -129,7 +161,7 @@ export function createDestinationSnapshot(
       backendIdentity.verification === "trusted-host"
         ? `lex-destination-v1:sha256:${createHash("sha256").update(JSON.stringify(tuple)).digest("hex")}`
         : null,
-    projectRoot: invocation.projectRoot,
+    projectRoot,
     backend: Object.freeze({
       kind: backend.kind,
       identity: backendIdentity,

@@ -28,6 +28,7 @@ import {
 } from "@app/memory/store/index.js";
 import {
   RUNTIME_SCOPE_CONTRACT_VERSION,
+  detectExecutionSurface,
   type AuthorityGrantId,
   type AuthorityVersion,
   type AuthorizedScopeV1,
@@ -216,14 +217,11 @@ function trustedMcpScope(target: SqliteScopeTargetV1): MCPRuntimeScopeGuardV1 {
         cwd: projectRoot,
         argv: ["node", "lex"],
         allowedEnvironment: {},
-        platform: "linux",
-        executionSurface: {
-          schemaVersion: 1,
-          nativePlatform: "linux",
-          kind: "linux-native",
-          installationRef: "/usr/bin/node",
-          evidenceDigest: "sha256:sqlite-test-surface" as ContentDigest,
-        },
+        platform: process.platform,
+        executionSurface: detectExecutionSurface({
+          platform: process.platform,
+          installationRef: process.execPath,
+        }),
         capturedAt: "2026-07-18T00:00:00.000Z",
       },
       runtimeId: "sqlite-test-runtime" as RuntimeId,

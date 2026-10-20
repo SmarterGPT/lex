@@ -79,6 +79,7 @@ try {
     "verify-public-api.mjs",
     "verify-sharp-runtime.mjs",
     "verify-sqlite-runtime.mjs",
+    "verify-bound-destination-runtime.mjs",
   ]) {
     fs.copyFileSync(path.join(repoRoot, "scripts", script), path.join(testDir, script));
   }
@@ -102,6 +103,8 @@ try {
 
   console.log("==> Verifying the installed lifecycle/native dependency boundary");
   run(process.execPath, ["verify-sqlite-runtime.mjs", packageRoot], { cwd: testDir });
+  console.log("==> Verifying trusted native discovery and bound CLI/MCP destination writes");
+  run(process.execPath, ["verify-bound-destination-runtime.mjs", packageRoot], { cwd: testDir });
   fs.appendFileSync(
     path.join(testDir, "public-api-consumer.ts"),
     `

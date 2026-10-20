@@ -51,7 +51,10 @@ import {
   type BindingRow,
   type RegistryIdentityRow,
 } from "./registry-queries.js";
-import { executionSurfacePathsAreRelated, normalizeExecutionSurfacePath } from "./surface.js";
+import {
+  executionSurfacePathsAreRelated,
+  normalizeExecutionSurfaceIdentityPath,
+} from "./surface.js";
 
 export const LOCAL_REGISTRY_SCHEMA_VERSION = 1 as const;
 export const LOCAL_REGISTRY_APPLICATION_ID = 0x4c585231 as const;
@@ -208,8 +211,7 @@ function digestFields(fields: readonly (string | undefined)[]): ContentDigest {
 
 function normalizeRoot(root: string, surface: ExecutionSurfaceEvidenceV1): string {
   try {
-    const normalized = normalizeExecutionSurfacePath(root, surface, "repository canonical root");
-    return surface.nativePlatform === "win32" ? normalized.toLowerCase() : normalized;
+    return normalizeExecutionSurfaceIdentityPath(root, surface, "repository canonical root");
   } catch (error) {
     throw new LocalRegistryError(
       "REGISTRY_INVALID_INPUT",
