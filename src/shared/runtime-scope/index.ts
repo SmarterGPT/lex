@@ -293,3 +293,15 @@ export {
   type WorkspaceBindingAdminServiceV1,
   type WorkspaceBindingAdminDependenciesV1,
 } from "./workspace-admin.js";
+
+export {
+  verifiedBackendIdentity,
+  UNVERIFIED_BACKEND_IDENTITY,
+  createDestinationSnapshot,
+  assertExpectedDestination,
+  DestinationBindingError,
+  type VerifiedBackendIdentityV1,
+  type BackendIdentityV1,
+  type DestinationBackendV1,
+  type DestinationSnapshotV1,
+} from "./destination.js";

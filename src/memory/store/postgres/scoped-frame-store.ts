@@ -1,9 +1,14 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { Pool, type PoolClient, type QueryResultRow } from "pg";
 import type { Frame, FrameSpendMetadata, FrameStatusSnapshot } from "../../frames/types.js";
 import { Frame as FrameSchema } from "../../frames/types.js";
 import type { AuthorizedScopeV1, CapabilityId } from "../../../shared/runtime-scope/index.js";
-import { RUNTIME_SCOPE_CONTRACT_VERSION } from "../../../shared/runtime-scope/index.js";
+import {
+  RUNTIME_SCOPE_CONTRACT_VERSION,
+  verifiedBackendIdentity,
+  UNVERIFIED_BACKEND_IDENTITY,
+  type VerifiedBackendIdentityV1,
+} from "../../../shared/runtime-scope/index.js";
 import {
   createPostgresSchemaTarget,
   type PostgresSchemaTargetV1,
@@ -307,6 +312,7 @@ function metadataFor(location: string, schema: string): FrameStoreMetadata {
   const canonicalLocation = `${location}#schema=${schema}`;
   return {
     backend: "postgres",
+    namespace: schema,
     location: canonicalLocation,
     canonicalLocation,
     identity: `postgres-scoped-v3:${createHash("sha256").update(canonicalLocation).digest("hex").slice(0, 16)}`,
@@ -546,13 +552,22 @@ interface BackendResources {
 function createResources(
   connection: string | Pool,
   applicationName: string,
-  schema: string
+  schema: string,
+  verifiedBackend?: VerifiedBackendIdentityV1
 ): BackendResources {
+  const backendIdentity = verifiedBackend
+    ? verifiedBackendIdentity(verifiedBackend)
+    : UNVERIFIED_BACKEND_IDENTITY;
   if (typeof connection === "object") {
     return {
       pool: connection,
       ownsPool: false,
-      metadata: metadataFor("postgresql://injected-pool", schema),
+      metadata: {
+        ...metadataFor("postgresql://injected-pool", schema),
+        // Without trusted evidence, this is only an instance diagnostic reference.
+        identity: verifiedBackend?.identity ?? `postgres-scoped-unverified:${randomUUID()}`,
+        backendIdentity,
+      },
     };
   }
   const parsed = parsePostgresLocation(connection);
@@ -565,13 +580,19 @@ function createResources(
       connectionTimeoutMillis: 5_000,
     }),
     ownsPool: true,
-    metadata: metadataFor(parsed.location, schema),
+    metadata: {
+      ...metadataFor(parsed.location, schema),
+      backendIdentity,
+      ...(verifiedBackend ? { identity: verifiedBackend.identity } : {}),
+    },
   };
 }
 
 export interface PostgresScopedFrameStoreOptions {
   /** Explicit canonical schema. Ambient search_path is never authority. */
   readonly schema: string;
+  /** Supplied only after the trusted host has verified its live backend. Never read from env or frame input. */
+  readonly verifiedBackend?: VerifiedBackendIdentityV1;
   readonly accessMode?: "read-only" | "read-write";
   readonly now?: () => Date;
 }
@@ -955,7 +976,12 @@ export class PostgresScopedFrameStoreBackend implements ScopedFrameStoreBinder {
 
   constructor(connection: string | Pool, options: PostgresScopedFrameStoreOptions) {
     const target = createPostgresSchemaTarget(options.schema);
-    this.resources = createResources(connection, "lex-scoped-frame-store-runtime", target.schema);
+    this.resources = createResources(
+      connection,
+      "lex-scoped-frame-store-runtime",
+      target.schema,
+      options.verifiedBackend
+    );
     this.accessMode = options.accessMode ?? "read-write";
     this.now = options.now ?? (() => new Date());
     this.runner = new ScopedTransactionRunner(this.resources.pool, true, this.now, target);

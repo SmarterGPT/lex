@@ -21,6 +21,7 @@ export type TrustedCliOperation =
   | "version"
   | "init"
   | "remember"
+  | "destination"
   | "recall"
   | "context"
   | "check"
@@ -65,6 +66,11 @@ const CLI_CAPABILITIES: Readonly<Record<TrustedCliOperation, readonly Capability
     help: Object.freeze([]),
     version: Object.freeze([]),
     init: Object.freeze([]),
+    // Authorize the intended remember operation without reading or mutating Frames.
+    destination: Object.freeze([
+      RUNTIME_OPERATION_CAPABILITIES.FRAME_READ,
+      RUNTIME_OPERATION_CAPABILITIES.FRAME_WRITE,
+    ]),
     remember: Object.freeze([
       RUNTIME_OPERATION_CAPABILITIES.FRAME_READ,
       RUNTIME_OPERATION_CAPABILITIES.FRAME_WRITE,
@@ -229,6 +235,7 @@ export const MCP_TOOL_ALIASES = Object.freeze({
 
 export type CanonicalMcpTool =
   | "frame_create"
+  | "destination_inspect"
   | "frame_validate"
   | "frame_search"
   | "frame_get"
@@ -245,6 +252,10 @@ export type CanonicalMcpTool =
 
 const MCP_CAPABILITIES: Readonly<Record<CanonicalMcpTool, readonly CapabilityId[]>> = Object.freeze(
   {
+    destination_inspect: Object.freeze([
+      RUNTIME_OPERATION_CAPABILITIES.FRAME_READ,
+      RUNTIME_OPERATION_CAPABILITIES.FRAME_WRITE,
+    ]),
     frame_create: Object.freeze([
       RUNTIME_OPERATION_CAPABILITIES.FRAME_READ,
       RUNTIME_OPERATION_CAPABILITIES.FRAME_WRITE,

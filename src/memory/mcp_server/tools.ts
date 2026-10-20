@@ -10,9 +10,16 @@ import { CANONICAL_MCP_TOOLS, MCP_TOOL_ALIASES } from "../../shared/runtime-scop
 export interface MCPTool {
   name: string;
   description: string;
+  annotations?: {
+    readOnlyHint?: boolean;
+    destructiveHint?: boolean;
+    idempotentHint?: boolean;
+    openWorldHint?: boolean;
+  };
   inputSchema: {
     type: string;
     required?: string[];
+    additionalProperties?: boolean;
     properties: Record<string, unknown>;
   };
 }
@@ -25,12 +32,35 @@ export interface MCPTool {
  */
 export const MCP_TOOLS: MCPTool[] = [
   {
+    name: "destination_inspect",
+    description:
+      "Payload-free authorized destination snapshot for frame_create. Reads no Frames and performs no writes; requires the same authorization as frame_create.",
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+  },
+  {
     name: "frame_create",
     description: "Store a Frame (episodic memory snapshot). Alias: remember (deprecated)",
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: false,
+    },
     inputSchema: {
       type: "object",
       required: ["reference_point", "summary_caption", "status_snapshot", "module_scope"],
       properties: {
+        expected_destination: {
+          type: "string",
+          description:
+            "Require the verified destination identity returned by destination_inspect. This restricts the write and does not grant authorization.",
+        },
         reference_point: {
           type: "string",
           description: 'What you were working on (e.g., "refactoring UserAuth module")',

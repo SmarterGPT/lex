@@ -7,6 +7,7 @@
  */
 
 import type { Frame } from "../frames/types.js";
+import type { BackendIdentityV1 } from "../../shared/runtime-scope/destination.js";
 
 /**
  * Search criteria for Frames.
@@ -184,8 +185,15 @@ export interface FrameStoreMetadata {
   /** Canonical credential-free location used to derive identity. */
   canonicalLocation: string;
 
-  /** Stable, non-secret identity for comparing active stores across surfaces. */
+  /** Non-secret diagnostic store reference. Unverified injected pools use a per-instance reference;
+   * use backendIdentity for verified physical-backend comparison across surfaces. */
   identity: string;
+
+  /** Trusted physical evidence, when supplied by the host. Legacy identities are descriptive only. */
+  backendIdentity?: BackendIdentityV1;
+
+  /** Explicit physical namespace, such as a PostgreSQL schema. */
+  namespace?: string;
 
   /** Backend capabilities that callers must not infer from implementation classes. */
   capabilities: {
