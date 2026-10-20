@@ -67,6 +67,11 @@ import {
 import { compactFrame, compactFrameList } from "../renderer/compact.js";
 import {
   DIAGNOSTIC_CONTRACT_VERSION,
+  createDestinationSnapshot,
+  UNVERIFIED_BACKEND_IDENTITY,
+  assertExpectedDestination,
+  DestinationBindingError,
+  type DestinationSnapshotV1,
   CANONICAL_MCP_TOOLS,
   MCP_TOOL_ALIASES,
   authorizeTrustedRuntimeEntrypoint,
@@ -211,6 +216,7 @@ interface RememberArgs {
   atlas_frame_id?: string;
   images?: { data: string; mime_type: string }[];
   request_id?: string;
+  expected_destination?: string;
 }
 
 interface RecallArgs {
@@ -316,6 +322,7 @@ export interface MCPRuntimeScopeGuardV1 extends TrustedRuntimeScopeEntrypointGua
 
 interface MCPDispatchWorkspaceContext {
   readonly trusted: boolean;
+  readonly destination?: DestinationSnapshotV1;
   readonly projectRoot: string | null;
   readonly policy: Policy | null;
   readonly policyResolution: PolicyPathResolution | null;
@@ -655,6 +662,10 @@ export class MCPServer {
         };
       }
 
+      if (error instanceof DestinationBindingError) {
+        return { error: { code: error.code, message: error.message } };
+      }
+
       // Handle generic errors
       const errorMessage = error instanceof Error ? error.message : String(error);
       return {
@@ -806,6 +817,29 @@ export class MCPServer {
     }
     const dispatchStore = scopedStore ? scopedFrameStoreAsLegacyView(scopedStore) : this.frameStore;
     if (
+      authorizedRuntimeScope &&
+      dispatchStore &&
+      ["frame_create", "destination_inspect"].includes(canonicalMcpToolName(params.name))
+    ) {
+      try {
+        const metadata = dispatchStore.getMetadata();
+        Object.assign(dispatchContext, {
+          destination: createDestinationSnapshot(
+            authorizedRuntimeScope.invocationContext,
+            authorizedRuntimeScope.authorizedScope,
+            {
+              kind: metadata.backend,
+              identity: metadata.backendIdentity ?? UNVERIFIED_BACKEND_IDENTITY,
+              ...(metadata.namespace ? { namespace: metadata.namespace } : {}),
+            }
+          ),
+        });
+      } catch (error) {
+        await scopedStore?.close();
+        throw error;
+      }
+    }
+    if (
       !dispatchStore &&
       requestedCapabilities.some((capability) => capability.startsWith("frame:"))
     ) {
@@ -868,6 +902,33 @@ export class MCPServer {
     }
 
     switch (canonicalName) {
+      case "destination_inspect":
+        if (Object.keys(args).length > 0) {
+          return {
+            error: {
+              code: MCPErrorCode.VALIDATION_INVALID_FORMAT,
+              message: "destination_inspect accepts no frame payload or destination selectors.",
+            },
+          };
+        }
+        if (!context.destination) {
+          return {
+            error: {
+              code: "LEX_WORKSPACE_UNBOUND",
+              message: "Destination inspection requires a trusted scope-bound host.",
+            },
+          };
+        }
+        return {
+          data: { destination: context.destination },
+          content: [
+            {
+              type: "text",
+              text: "Authorized destination snapshot for frame_create (no Frames read or written).",
+            },
+          ],
+        };
+
       case "frame_create":
         return await this.handleRemember(
           args,
@@ -947,9 +1008,17 @@ export class MCPServer {
       request_id,
     } = args as unknown as RememberArgs;
 
+    try {
+      assertExpectedDestination(context.destination, args.expected_destination);
+    } catch (error) {
+      if (error instanceof DestinationBindingError)
+        return { error: { code: error.code, message: error.message } };
+      throw error;
+    }
+
     // Check idempotency cache if request_id is provided
     const scopedRequestId = request_id
-      ? JSON.stringify([idempotencyNamespace, request_id])
+      ? JSON.stringify([idempotencyNamespace, context.destination?.identity ?? null, request_id])
       : undefined;
     if (scopedRequestId) {
       const cachedResponse = this.idempotencyCache.getCached(scopedRequestId);
@@ -1074,6 +1143,15 @@ export class MCPServer {
       }
     }
 
+    try {
+      assertExpectedDestination(context.destination, args.expected_destination);
+    } catch (error) {
+      if (error instanceof DestinationBindingError)
+        return { error: { code: error.code, message: error.message } };
+      throw error;
+    }
+    // Authorization resolves at entry; host backend evidence may be older. Neither is atomically reverified here.
+    const storeMetadata = frameStore.getMetadata();
     await frameStore.saveFrame(frame);
 
     if (images && Array.isArray(images) && images.length > 0) {
@@ -1120,6 +1198,13 @@ export class MCPServer {
     // Build structured response data (AX-002)
     const responseData: Record<string, unknown> = {
       success: true,
+      ...(context.destination ? { destination: context.destination } : {}),
+      storeIdentity: storeMetadata.identity,
+      store: {
+        backend: storeMetadata.backend,
+        canonicalLocation: storeMetadata.canonicalLocation,
+        identity: storeMetadata.identity,
+      },
       frame_id: frameId,
       created_at: timestamp,
       module_scope: canonicalModuleScope,

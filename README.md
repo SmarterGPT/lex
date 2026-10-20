@@ -301,9 +301,10 @@ rather than reconstructing them from ambient environment variables.
 
 ## Project status
 
-**Current Version:** `4.4.2`
+**Current Version:** `4.4.3`
 
-Lex 4.4 adds a narrow canonical session-context API and repairs MCP help discovery. See the
+Lex 4.4.3 adds verified workspace destination preflight and matching save receipts. See the
+[4.4.3 release notes](./docs/releases/lex-4.4.3.md), the
 [4.4 release notes](./docs/releases/lex-4.4.md) and
 [migration guide](./docs/releases/lex-4.4-migration.md). Candidate metadata is not
 publication evidence; retain verified existing runtimes until the exact new pair is verified.

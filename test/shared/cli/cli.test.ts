@@ -102,7 +102,7 @@ test("CLI: lex remember --help surfaces the required module contract", () => {
     assert.match(output, /Required module IDs/);
     assert.match(output, /auto.*inference/);
     assert.match(output, /unscoped.*fallback/);
-    assert.match(output, /required Frame\s+fields still apply/);
+    assert.match(output, /required\s+Frame\s+fields still apply/);
     assert.match(output, /provenance-json/);
   } finally {
     cleanup();

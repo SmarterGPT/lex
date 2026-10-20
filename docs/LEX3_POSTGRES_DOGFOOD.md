@@ -79,3 +79,5 @@ case. Execution follows one canonical order. A case failure records exactly one 
 every later case is `not-run`. Setup and other phase failures preserve a completed prefix followed
 by `not-run`. Output assertions are `proven` only after their real CLI/MCP checks finish. A failed
 gate exits non-zero and reports only a stable phase, optional case ID, and error code.
+
+See [authorized destination inspection and save receipts](./DESTINATION_PROVENANCE.md) for trusted backend evidence, payload-free preflight, expected-destination restrictions, and the operation-entry freshness boundary.

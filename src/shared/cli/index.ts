@@ -5,6 +5,7 @@
  */
 
 import { Command, InvalidArgumentError } from "commander";
+import { destination } from "./destination.js";
 import { remember, type RememberOptions } from "./remember.js";
 import { recall, type RecallOptions } from "./recall.js";
 import { check, type CheckOptions } from "./check.js";
@@ -64,6 +65,9 @@ import * as output from "./output.js";
 import { AXErrorException } from "../errors/ax-error.js";
 import {
   DIAGNOSTIC_CONTRACT_VERSION,
+  createDestinationSnapshot,
+  UNVERIFIED_BACKEND_IDENTITY,
+  type DestinationSnapshotV1,
   authorizeTrustedRuntimeEntrypoint,
   capabilitiesForCliInvocation,
   trustedCliOperationFromArgv,
@@ -98,6 +102,8 @@ export interface CreateProgramOptionsV1 {
   readonly runtimeScopeDiagnostics?: boolean;
   /** Request-local authorized store; never retained after this invocation. */
   readonly frameStore?: FrameStore;
+  /** Trusted operation-entry snapshot; never populated from command arguments. */
+  readonly destination?: DestinationSnapshotV1;
   readonly workspaceAdmin?: WorkspaceAdminCliV1;
 }
 
@@ -151,6 +157,13 @@ export function createProgram(programOptions: CreateProgramOptionsV1 = {}): Comm
       await init(options);
     });
 
+  program
+    .command("destination")
+    .description(
+      "Inspect the authorized destination for remember without reading or writing Frames"
+    )
+    .action(() => destination(programOptions.destination, program.opts().json || false));
+
   // lex remember command
   program
     .command("remember")
@@ -179,6 +192,10 @@ export function createProgram(programOptions: CreateProgramOptionsV1 = {}): Comm
     .option("--no-substring", "Disable substring matching for module IDs (for CI)")
     .option("--skip-policy", "Skip ontology validation only; required Frame fields still apply")
     .option("--dry-run", "Validate frame without storing (matches frame_validate MCP tool)")
+    .option(
+      "--expected-destination <identity>",
+      "Require the verified destination identity from lex destination"
+    )
     .action(async (cmdOptions) => {
       const globalOptions = program.opts();
       const options: RememberOptions = {
@@ -200,8 +217,9 @@ export function createProgram(programOptions: CreateProgramOptionsV1 = {}): Comm
         noSubstring: cmdOptions.noSubstring || false,
         noPolicy: cmdOptions.skipPolicy || false,
         dryRun: cmdOptions.dryRun || false,
+        expectedDestination: cmdOptions.expectedDestination,
       };
-      await remember(options, programOptions.frameStore);
+      await remember(options, programOptions.frameStore, programOptions.destination);
     });
 
   // lex recall command
@@ -874,6 +892,7 @@ export async function run(
   options: CliRunOptionsV1 = {}
 ): Promise<void> {
   let scopedStore: ScopedFrameStore | undefined;
+  let destinationSnapshot: DestinationSnapshotV1 | undefined;
   const boundary = argv.indexOf("--");
   const runtimeArguments = boundary === -1 ? argv : argv.slice(0, boundary);
   const hasDiagnosticLevel = runtimeArguments.some(
@@ -944,6 +963,18 @@ export async function run(
       scopedStore = options.runtimeScope.frameStoreBinder.bind(result.authorizedScope);
     }
     try {
+      if (scopedStore && (operation === "remember" || operation === "destination")) {
+        const metadata = scopedStore.getMetadata();
+        destinationSnapshot = createDestinationSnapshot(
+          result.invocationContext,
+          result.authorizedScope,
+          {
+            kind: metadata.backend,
+            identity: metadata.backendIdentity ?? UNVERIFIED_BACKEND_IDENTITY,
+            ...(metadata.namespace ? { namespace: metadata.namespace } : {}),
+          }
+        );
+      }
       await options.runtimeScope.onResolved?.(result);
     } catch (error) {
       await scopedStore?.close();
@@ -953,6 +984,7 @@ export async function run(
   const program = createProgram({
     runtimeScopeDiagnostics: options.runtimeScope !== undefined,
     ...(scopedStore ? { frameStore: scopedFrameStoreAsLegacyView(scopedStore) } : {}),
+    ...(destinationSnapshot ? { destination: destinationSnapshot } : {}),
     ...(options.workspaceAdmin ? { workspaceAdmin: options.workspaceAdmin } : {}),
   });
   try {

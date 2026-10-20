@@ -19,7 +19,7 @@ The supported transport is stdio JSON-RPC through `@smartergpt/lex-mcp`:
 ```json
 {
   "command": "npx",
-  "args": ["--yes", "@smartergpt/lex-mcp@4.4.2"]
+  "args": ["--yes", "@smartergpt/lex-mcp@4.4.3"]
 }
 ```
 
@@ -34,10 +34,11 @@ notification, and `tools/list` before any store-backed call.
 
 [`tools.ts`](./tools.ts) is the advertised tool definition and
 [`server.ts`](./server.ts) is the dispatch implementation. `tools/list` currently advertises
-exactly fourteen canonical `resource_action` names:
+exactly fifteen canonical `resource_action` names:
 
 | Tool | Purpose |
 | --- | --- |
+| `destination_inspect` | Inspect the trusted workspace destination for a Frame write without reading or writing Frames |
 | `frame_create` | Validate and store a deliberate Frame |
 | `frame_validate` | Validate Frame input without storing it |
 | `frame_search` | Search Frames using the selected store |
@@ -192,7 +193,7 @@ At minimum, MCP changes must prove:
 
 - package build and public API checks;
 - initialization and notification silence;
-- exact fourteen-tool discovery;
+- exact fifteen-tool discovery;
 - canonical and supported-alias dispatch behavior;
 - pre-dispatch authority denial;
 - cancellation and process cleanup;

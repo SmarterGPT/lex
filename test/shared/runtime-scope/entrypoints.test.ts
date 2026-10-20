@@ -45,6 +45,20 @@ function fakeInvocationContext(projectRoot = TEST_REPO_ROOT): InvocationContextV
       schemaVersion: 1,
       canonicalRoot: projectRoot,
     },
+    binding: {
+      schemaVersion: 1,
+      bindingId: "binding-1" as never,
+      registryInstanceId: "registry-1" as never,
+      executionSurfaceId: "surface-1" as never,
+      workspaceInstanceId: "workspace-instance-1" as never,
+      repositoryInstanceId: "repo-instance-1" as never,
+      tenantId: "tenant-1" as never,
+      workspaceId: "workspace-lex" as never,
+      repositoryId: "repo-1" as never,
+      evidence: { schemaVersion: 1, canonicalRoot: projectRoot },
+      state: "active",
+      createdAt: "2026-07-18T12:00:00.000Z",
+    },
     runtimeSurface: {
       schemaVersion: 1,
       executionSurfaceId: "surface-1" as never,
@@ -486,7 +500,10 @@ describe("trusted runtime-scope entrypoint guards", () => {
       async resolve(request) {
         return {
           resolved: true,
-          invocationContext: fakeInvocationContext(),
+          invocationContext: {
+            ...fakeInvocationContext(),
+            binding: { ...fakeInvocationContext().binding!, workspaceId: workspace as never },
+          },
           authorizedScope: {
             ...fakeAuthorizedScope(request.requestedCapabilities),
             workspaceId: workspace as never,

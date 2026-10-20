@@ -8,6 +8,11 @@
  * - Uses AXError for structured error handling
  */
 
+import {
+  assertExpectedDestination,
+  DestinationBindingError,
+  type DestinationSnapshotV1,
+} from "../runtime-scope/destination.js";
 import inquirer from "inquirer";
 import { v4 as uuidv4 } from "uuid";
 import type { CallerProvenance, Frame } from "../types/frame.js";
@@ -42,6 +47,7 @@ export interface RememberOptions {
   noSubstring?: boolean;
   noPolicy?: boolean;
   dryRun?: boolean;
+  expectedDestination?: string;
 }
 
 export const MAX_CALLER_PROVENANCE_BYTES = 64 * 1024;
@@ -92,7 +98,8 @@ function parseCallerProvenance(value: string | undefined): ProvenanceParseResult
  */
 export async function remember(
   options: RememberOptions = {},
-  frameStore?: FrameStore
+  frameStore?: FrameStore,
+  destinationSnapshot?: DestinationSnapshotV1
 ): Promise<void> {
   // Create output writer for this command
   // When --json is set, use JSONL mode for structured output (AX v0.1 compliance)
@@ -125,10 +132,18 @@ export async function remember(
   const callerProvenance = provenanceResult.provenance;
 
   // If no store is provided, create a default one (which we'll need to close)
-  const store = frameStore ?? createFrameStore();
+  let store: FrameStore | undefined;
   const ownsStore = frameStore === undefined;
 
   try {
+    if (options.dryRun && options.expectedDestination !== undefined) {
+      throw new DestinationBindingError(
+        "--expected-destination binds writes; omit it for --dry-run or inspect the destination separately."
+      );
+    }
+    // Expected identity can only restrict the host-authorized destination. Check before history reads.
+    assertExpectedDestination(destinationSnapshot, options.expectedDestination);
+    store = frameStore ?? createFrameStore();
     // Get current git branch
     const branch = await getCurrentBranch();
     const policy = options.noPolicy ? null : loadPolicyIfAvailable();
@@ -334,6 +349,9 @@ export async function remember(
     // Resolving metadata first prevents a successful write followed by a failed receipt.
     const storeMetadata = options.json ? store.getMetadata() : null;
 
+    // Recheck expiry before mutation. Authorization resolved at entry; backend evidence retains its host verification time.
+    assertExpectedDestination(destinationSnapshot, options.expectedDestination);
+
     // Save Frame to database using FrameStore
     await store.saveFrame(frame);
 
@@ -353,6 +371,7 @@ export async function remember(
           referencePoint: frame.reference_point,
           moduleAttribution: frame.module_attribution,
           ...(callerProvenance ? { provenance: callerProvenance } : {}),
+          ...(destinationSnapshot ? { destination: destinationSnapshot } : {}),
           storeIdentity: storeMetadata!.identity,
           store: {
             backend: storeMetadata!.backend,
@@ -377,7 +396,7 @@ export async function remember(
     if (options.json) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       const axError: AXError = createAXError(
-        "FRAME_STORE_FAILED",
+        error instanceof DestinationBindingError ? error.code : "FRAME_STORE_FAILED",
         errorMessage,
         [
           "Check database connection",
@@ -395,7 +414,7 @@ export async function remember(
   } finally {
     // Close store if we own it
     if (ownsStore) {
-      await store.close();
+      await store?.close();
     }
   }
 }

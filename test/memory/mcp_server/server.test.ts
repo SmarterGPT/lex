@@ -56,6 +56,7 @@ describe("MCP Server - Protocol", () => {
         "atlas_analyze",
         "contradictions_scan",
         "db_stats",
+        "destination_inspect",
         "frame_create",
         "frame_get",
         "frame_list",
