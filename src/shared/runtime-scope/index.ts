@@ -132,6 +132,7 @@ export {
 export {
   RUNTIME_SCOPE_IMPLEMENTATION_VERSION,
   nativePlatformFromNode,
+  normalizeExecutionSurfaceIdentityPath,
   detectExecutionSurface,
   resolveLocalRegistryLocation,
   type BootstrapInputSnapshotV1,

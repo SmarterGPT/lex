@@ -831,7 +831,8 @@ export class MCPServer {
               kind: metadata.backend,
               identity: metadata.backendIdentity ?? UNVERIFIED_BACKEND_IDENTITY,
               ...(metadata.namespace ? { namespace: metadata.namespace } : {}),
-            }
+            },
+            this.runtimeScope?.request.bootstrap.executionSurface
           ),
         });
       } catch (error) {

@@ -62,3 +62,12 @@ Repository references describe the verified bootstrap association. Frames are st
 These APIs require a Lex build containing this change and matching trusted-host/AXF wiring. Building a local checkout does not update a separately installed or pinned runtime. In the development environment that motivated this change, the audited installed runtime was 4.4.1 and the source checkout was 4.4.2; inspect the actual deployed artifact rather than assuming a source version activates the fix.
 
 Targeted tests cover explicit unknown identities, two physical identities, separate schema/workspace destinations, real CLI/MCP capability maps, payload-free preflight, receipt parity, expected-binding drift, spoofed frame metadata, cache isolation, and bound-store cleanup. Live PostgreSQL RLS tests remain opt-in through dedicated test URLs; no production frame store is needed for these new tests.
+
+
+## Execution-surface path identity in 4.4.4
+
+Trusted CLI/MCP entrypoints pass their captured execution surface to destination construction. The same lexical identity formatter used by the local binding registry normalizes native separators and folds Windows case. POSIX identity remains case-sensitive. This fixes 4.4.3 rejecting an authorized Windows binding whose stored lowercase root differed from discovery's filesystem spelling.
+
+Binding and discovered canonical repository roots must still be exactly equal after this formatting; sibling, nested and different-drive repository roots are not interchangeable. A valid project subdirectory stays distinct in the destination digest. This performs no filesystem lookup, symlink resolution or physical identity proof, and grants no new authority. Binding state, tenant/workspace, canonical authorization, backend verification and expected-destination restrictions remain required.
+
+The optional fourth `createDestinationSnapshot` parameter is trusted `ExecutionSurfaceEvidenceV1`, supplied by the composition host rather than frame data, tool arguments or ambient environment. Existing three-argument direct callers retain conservative raw-root equality. Windows root formatting also applies to returned `projectRoot` and the digest inputs, so equivalent captured Windows case/separator spellings produce the same destination restriction. Re-inspect and reconcile previously captured expected identities after upgrading; never retry a mismatch by silently changing authority or rebinding a repository.

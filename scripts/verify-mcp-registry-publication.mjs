@@ -1,41 +1,67 @@
 #!/usr/bin/env node
-/**
- * Verifies that a just-published Lex entry is the live MCP Registry latest
- * version. Intended for the protected post-publication workflow step.
- *
- * Usage: node scripts/verify-mcp-registry-publication.mjs --version 3.0.0
- */
+/* eslint-disable no-console -- CLI verification evidence and failures */
+/** One bounded read of the exact public version. The workflow owns its retry budget. */
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const versionIndex = process.argv.indexOf("--version");
-const expectedVersion = versionIndex === -1 ? undefined : process.argv[versionIndex + 1];
+const serverName = "dev.smartergpt/lex";
+const wrapperName = "@smartergpt/lex-mcp";
 
-if (!expectedVersion) {
-  console.error("Usage: verify-mcp-registry-publication.mjs --version <semver>");
-  process.exit(2);
+export function assertRegistryPublicationEntry(entry, expectedVersion) {
+  const official = entry?._meta?.["io.modelcontextprotocol.registry/official"];
+  if (
+    entry?.server?.name !== serverName ||
+    entry.server.version !== expectedVersion ||
+    entry.server.packages?.[0]?.registryType !== "npm" ||
+    entry.server.packages[0].identifier !== wrapperName ||
+    entry.server.packages[0].version !== expectedVersion ||
+    entry.server.packages[0].transport?.type !== "stdio" ||
+    official?.status !== "active" ||
+    official.isLatest !== true
+  ) {
+    throw new Error(
+      `Registry does not report ${serverName} v${expectedVersion} as active/latest with the exact wrapper contract.`
+    );
+  }
 }
 
-const response = await fetch(
-  "https://registry.modelcontextprotocol.io/v0.1/servers?search=dev.smartergpt%2Flex"
-);
-
-if (!response.ok) {
-  console.error(`Registry lookup failed: ${response.status} ${response.statusText}`);
-  process.exit(1);
+export async function verifyRegistryPublication({
+  version,
+  fetchImpl = globalThis.fetch,
+  timeoutMs = 15000,
+}) {
+  if (!/^\d+\.\d+\.\d+$/.test(version ?? ""))
+    throw new Error("An exact release semver is required.");
+  if (!Number.isInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 30000)
+    throw new Error("Registry timeout must be bounded to 1..30000 milliseconds.");
+  const url = `https://registry.modelcontextprotocol.io/v0.1/servers/${encodeURIComponent(serverName)}/versions/${encodeURIComponent(version)}`;
+  const response = await fetchImpl(url, {
+    signal: AbortSignal.timeout(timeoutMs),
+    headers: { Accept: "application/json" },
+  });
+  if (!response.ok)
+    throw new Error(`Registry version lookup failed: ${response.status} ${response.statusText}`);
+  const entry = await response.json();
+  assertRegistryPublicationEntry(entry, version);
+  return { url, version, entry };
 }
 
-const result = await response.json();
-const entry = result.servers?.find(
-  ({ server, _meta }) =>
-    server?.name === "dev.smartergpt/lex" &&
-    server?.version === expectedVersion &&
-    server?.packages?.[0]?.identifier === "@smartergpt/lex-mcp" &&
-    server?.packages?.[0]?.version === expectedVersion &&
-    _meta?.["io.modelcontextprotocol.registry/official"]?.isLatest === true
-);
-
-if (!entry) {
-  console.error(`Registry does not yet report dev.smartergpt/lex v${expectedVersion} as latest.`);
-  process.exit(1);
+async function main() {
+  const index = process.argv.indexOf("--version");
+  const version = index < 0 ? undefined : process.argv[index + 1];
+  if (!version) {
+    console.error("Usage: node scripts/verify-mcp-registry-publication.mjs --version <semver>");
+    process.exitCode = 2;
+    return;
+  }
+  try {
+    await verifyRegistryPublication({ version });
+    console.log(`MCP Registry exact version reports ${serverName} v${version} as active/latest.`);
+  } catch (error) {
+    console.error(
+      `Registry publication verification failed: ${error instanceof Error ? error.message : String(error)}`
+    );
+    process.exitCode = 1;
+  }
 }
-
-console.log(`✅ MCP Registry reports dev.smartergpt/lex v${expectedVersion} as latest.`);
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await main();

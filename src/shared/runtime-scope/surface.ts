@@ -85,6 +85,20 @@ export function normalizeExecutionSurfacePath(
   return path.normalize(captured);
 }
 
+/**
+ * Lexical identity formatting shared with the trusted local binding registry.
+ * Windows identity comparisons fold case; POSIX comparisons preserve it.
+ * This does not discover files, resolve symlinks, or prove physical identity.
+ */
+export function normalizeExecutionSurfaceIdentityPath(
+  value: string | undefined,
+  surface: ExecutionSurfaceEvidenceV1,
+  name: string
+): string {
+  const normalized = normalizeExecutionSurfacePath(value, surface, name);
+  return surface.nativePlatform === "win32" ? normalized.toLowerCase() : normalized;
+}
+
 function isWithin(parent: string, child: string, surface: ExecutionSurfaceEvidenceV1): boolean {
   const path = surface.nativePlatform === "win32" ? win32 : posix;
   const relative = path.relative(parent, child);
