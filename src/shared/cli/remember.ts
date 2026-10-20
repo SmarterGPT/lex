@@ -349,7 +349,7 @@ export async function remember(
     // Resolving metadata first prevents a successful write followed by a failed receipt.
     const storeMetadata = options.json ? store.getMetadata() : null;
 
-    // Expiry is rechecked immediately before mutation. Authority/backend verification occurred at operation entry.
+    // Recheck expiry before mutation. Authorization resolved at entry; backend evidence retains its host verification time.
     assertExpectedDestination(destinationSnapshot, options.expectedDestination);
 
     // Save Frame to database using FrameStore

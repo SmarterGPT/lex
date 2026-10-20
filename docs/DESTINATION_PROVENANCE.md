@@ -51,7 +51,7 @@ Save receipts from both CLI and MCP return the same `destination` shape plus com
 
 ## Exact security and freshness boundary
 
-A destination is an operation-entry snapshot. The trusted host verifies its backend, canonical authority resolves the invocation, and the store is bound to that scope before command/tool dispatch. Expected binding is checked again immediately before the save and authorization expiry is checked again. Existing PostgreSQL transaction-bound scope and RLS enforcement remain in place.
+A destination is assembled at operation entry from canonical authorization and the backend descriptor supplied by the trusted host. The descriptor records the host verification time in `verifiedAt`; a long-lived host may retain that evidence across operations. Canonical authority resolves each invocation and the store is bound to that scope before command/tool dispatch. Expected binding is checked again immediately before the save and authorization expiry is checked again. Existing PostgreSQL transaction-bound scope and RLS enforcement remain in place.
 
 This slice does not re-query backend identity or canonical grant revocation atomically with the frame transaction. A revocation, host rebinding, or authority change after operation-entry resolution has the same in-flight freshness limitation as the existing trusted runtime. The preflight creates no persistent consent, reservation, append-only operation, payload digest, or durable idempotency grant. Its timestamps do not establish a new maximum backend-evidence age. Hosts must keep the verified Pool target fixed for the invocation; stronger transaction-coupled revocation and destination attestation require additional work.
 

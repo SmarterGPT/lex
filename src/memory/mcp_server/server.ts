@@ -1150,7 +1150,7 @@ export class MCPServer {
         return { error: { code: error.code, message: error.message } };
       throw error;
     }
-    // Authority/backend evidence is an operation-entry snapshot, not an atomic revocation guarantee.
+    // Authorization resolves at entry; host backend evidence may be older. Neither is atomically reverified here.
     const storeMetadata = frameStore.getMetadata();
     await frameStore.saveFrame(frame);
 
