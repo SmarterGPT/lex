@@ -18,7 +18,7 @@ Add this to `.vscode/mcp.json`:
   "servers": {
     "lex": {
       "command": "npx",
-      "args": ["--yes", "@smartergpt/lex-mcp@4.4.2"],
+      "args": ["--yes", "@smartergpt/lex-mcp@4.4.3"],
       "env": {
         "LEX_WORKSPACE_ROOT": "${workspaceFolder}",
         "LEX_STORE": "sqlite"
@@ -37,7 +37,7 @@ Add this to `claude_desktop_config.json`, replacing the project path with an abs
   "mcpServers": {
     "lex": {
       "command": "npx",
-      "args": ["--yes", "@smartergpt/lex-mcp@4.4.2"],
+      "args": ["--yes", "@smartergpt/lex-mcp@4.4.3"],
       "env": {
         "LEX_WORKSPACE_ROOT": "/absolute/path/to/project",
         "LEX_STORE": "sqlite"
@@ -66,6 +66,7 @@ that exact payload as structured remediation.
 
 | Tool | Purpose |
 |---|---|
+| `destination_inspect` | Inspect an authorized trusted-host write destination without Frame access |
 | `frame_create` | Store a deliberate Frame |
 | `frame_search` | Search Frames by content or metadata |
 | `frame_get` | Retrieve one Frame by ID |
@@ -137,3 +138,5 @@ not executable instructions. Do not store credentials, private keys, or tokens i
 - [Store contracts](./docs/STORE_CONTRACTS.md)
 - [MCP configuration examples](./docs/MCP_CONFIG.md)
 - [MCP server implementation details](./src/memory/mcp_server/README.md)
+
+Trusted scope-bound hosts can use `destination_inspect`, then pass its verified destination identity as `expected_destination` to `frame_create`. This preflight authorizes the intended write while reading no Frames and performing no writes. Compatibility hosts without trusted scope do not provide this destination proof. See [destination provenance](./docs/DESTINATION_PROVENANCE.md) for the exact scope, unknown-backend behavior, and freshness boundary.

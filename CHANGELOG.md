@@ -1,5 +1,13 @@
 # Changelog
 
+## 4.4.3
+
+### Patch Changes
+
+See [release notes](docs/releases/lex-4.4.3.md) and the [migration and recovery guide](docs/releases/lex-4.4-migration.md).
+
+- 3d7c605: Expose payload-free authorized workspace destination inspection and matching CLI/MCP save receipts. Trusted PostgreSQL hosts can supply verified backend evidence; injected Pools without evidence now report an explicit unknown backend and a per-instance diagnostic reference instead of a misleading shared placeholder identity. Optional expected-destination binding rejects destination or authority drift before writes.
+
 ## 4.4.2
 
 ### Patch Changes

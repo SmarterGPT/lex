@@ -241,7 +241,7 @@ The cleanup must prove all of the following:
   in clearly labeled contributor/internal build material or historical evidence.
 - MCP launch examples use `@smartergpt/lex-mcp`; the removed source transport and shell launcher
   appear only in fail-closed migration guidance and historical evidence.
-- MCP tool inventories advertise the canonical fourteen names returned by `tools/list`. Any
+- MCP tool inventories advertise the canonical fifteen names returned by `tools/list`. Any
   accepted deprecated aliases are described as compatibility inputs, not preferred discoverable
   tools.
 - PostgreSQL examples select the intended endpoint, keep credentials out of tracked files, explain
