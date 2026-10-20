@@ -1,5 +1,24 @@
 # Changelog
 
+## 4.4.2
+
+### Patch Changes
+
+- 864b507: Follow explicit Frame supersession when building session context. Return the current replacement
+  without replaying retired guidance, preserve scoped read-only lookup, and report unresolved chains
+  instead of falling back to superseded content. Context schema 1.4.0 distinguishes this selection
+  contract and its new warning code. Full historical recall remains unchanged.
+- dec9082: Preserve stored hypothesis confidence in KnowledgeFrame context output. The existing low,
+  medium, or high value is included before byte budgeting; other record types omit it.
+  Hypotheses are omitted whole when they cannot fit. Stored schemas and freshness rules are unchanged.
+- 56315ed: Recover older branch and policy-module context beyond the recent candidate window.
+  Search bounded relevant subsets only when the recent pool is capped, preserve query
+  and store scope, and expose coverage in context schema 1.5.0. Add exact branch search
+  filters and apply SQLite module filters before the result limit. Output budgets and
+  explicit supersession behavior are preserved.
+- Refresh the locked runtime and release-tool dependencies to their patched versions,
+  including Axios 1.20.0, proxy-addr 2.0.8, Sharp 0.35.5, and Changesets 3.0.3.
+
 ## 4.4.1
 
 ### Patch Changes
