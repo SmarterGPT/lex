@@ -70,3 +70,21 @@ exposed the original UNC interpolation failure with both old glob 13 and new glo
 Owned local Windows roots qualify spaces and brackets/braces. Synthetic UNC
 filesystem mapping is lexical evidence only, not real SMB or remote-share
 qualification. No store, authority or containment contract changes.
+
+## Owned PostgreSQL connection cleanup
+
+The candidate also fixes cleanup when an internally constructed PostgreSQL pool
+rejects a connection before it becomes idle. The store observes one public client
+end and its bounded cleanup disposition; repeated close shares the same pending
+or failed result instead of hiding failure behind an already-closed flag.
+Normal healthy pool drain is unchanged, and cleanup uncertainty is an explicit
+failed close rather than permission to retry or claim release.
+
+This covers compatibility, scoped runtime/administration and behavioral owned
+pools. Supplied caller pools and logical bound-view close ownership are unchanged.
+Existing authentication assembly, pool options/capacity, Node/SQLite/dependency
+versions, schema/role/RLS checks and migration contracts are unchanged. No new
+public API, store migration, Windows helper activation or installed authority is
+introduced. The qualified artifact mechanism is development evidence; the typed
+canonical integration still requires exact-source review, full gates and fresh
+packed owned-path credential/close/natural-exit acceptance before readiness.

@@ -15,6 +15,8 @@
   refresh and qualification. See the [security release notes](docs/releases/lex-4.4.5-security.md)
   and [migration and recovery guide](docs/releases/lex-4.4-migration.md).
 
+- Clean up failed connections owned by PostgreSQL stores before close completes; repeated close retains pending/failure disposition. Caller-supplied pools and scoped/RLS ownership remain unchanged.
+
 ## 4.4.4
 
 ### Patch Changes

@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
-import { Pool, type PoolClient, type QueryResultRow } from "pg";
+import type { Pool, PoolClient, QueryResultRow } from "pg";
+import { createOwnedPostgresPool } from "./owned-pool.js";
 import type {
   FrameStore,
   FrameSearchCriteria,
@@ -209,6 +210,7 @@ function compatibilityIdentity(location: string, schema: string): string {
 export class PostgresFrameStore implements FrameStore {
   private readonly pool: Pool;
   private readonly ownsPool: boolean;
+  private readonly closeOwnedPool: (() => Promise<void>) | undefined;
   private readonly metadata: FrameStoreMetadata;
   private readonly _accessMode: PostgresFrameStoreAccessMode;
   private readonly target: PostgresSchemaTargetV1;
@@ -246,7 +248,7 @@ export class PostgresFrameStore implements FrameStore {
       url.password = process.env.LEX_POSTGRES_PASSWORD;
       poolConnectionString = url.toString();
     }
-    this.pool = new Pool({
+    const owner = createOwnedPostgresPool({
       connectionString: poolConnectionString,
       max: Number.isInteger(configuredMax) && configuredMax > 0 ? configuredMax : 10,
       idleTimeoutMillis: 30_000,
@@ -254,6 +256,8 @@ export class PostgresFrameStore implements FrameStore {
       allowExitOnIdle: true,
       application_name: "lex-frame-store",
     });
+    this.pool = owner.pool;
+    this.closeOwnedPool = owner.close;
     this.ownsPool = true;
     this.metadata = {
       backend: "postgres",
@@ -645,9 +649,8 @@ export class PostgresFrameStore implements FrameStore {
     return result.rowCount ?? 0;
   }
 
-  async close(): Promise<void> {
-    if (this.isClosed) return;
+  close(): Promise<void> {
     this.isClosed = true;
-    if (this.ownsPool) await this.pool.end();
+    return this.ownsPool ? this.closeOwnedPool!() : Promise.resolve();
   }
 }

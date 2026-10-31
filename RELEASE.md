@@ -56,6 +56,10 @@ SemVer decision retains public APIs and store formats, Node >=24 and SQLite
 exactly 13.0.3. See [4.4.5 security and recovery notes](docs/releases/lex-4.4.5-security.md)
 for the exact advisories, compatibility gates, and explicit existing-lock refresh.
 A private lock does not impose new transitive minima on downstream consumers.
+The candidate also repairs failed-connect cleanup for internally owned PostgreSQL
+pools. Close retains pending/failure disposition while observing registered
+cleanup; caller pools, auth/schema/scope contracts and normal pool capacity stay
+unchanged. Fresh exact packed credential and terminal acceptance is required.
 
 The prior Windows destination correction remains in force, including trusted
 execution-surface evidence, tenant/workspace/backend/binding authority and

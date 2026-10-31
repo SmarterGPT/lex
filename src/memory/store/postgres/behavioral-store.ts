@@ -1,6 +1,7 @@
+import { createOwnedPostgresPool } from "./owned-pool.js";
 import { createHash } from "node:crypto";
 
-import { Pool, type PoolClient, type QueryResultRow } from "pg";
+import type { Pool, PoolClient, QueryResultRow } from "pg";
 
 import type { ContentDigest } from "../../../shared/runtime-scope/index.js";
 import {
@@ -933,6 +934,7 @@ class PostgresBehavioralWriteView
 export class PostgresBehavioralStoreBackend implements BehavioralStoreBinder {
   readonly #pool: Pool;
   readonly #ownsPool: boolean;
+  readonly #closeOwnedPool: (() => Promise<void>) | undefined;
   readonly #runner: PostgresBehavioralTransactionRunner;
   readonly #target: PostgresSchemaTargetV1;
   readonly #now: () => Date;
@@ -941,10 +943,16 @@ export class PostgresBehavioralStoreBackend implements BehavioralStoreBinder {
 
   constructor(connection: string | Pool, options: PostgresBehavioralStoreOptionsV1) {
     this.#target = createPostgresSchemaTarget(options.schema);
-    this.#pool =
-      typeof connection === "string"
-        ? new Pool({ connectionString: connection, allowExitOnIdle: true })
-        : connection;
+    if (typeof connection === "string") {
+      const owner = createOwnedPostgresPool({
+        connectionString: connection,
+        allowExitOnIdle: true,
+      });
+      this.#pool = owner.pool;
+      this.#closeOwnedPool = owner.close;
+    } else {
+      this.#pool = connection;
+    }
     this.#ownsPool = typeof connection === "string";
     this.#now = options.now ?? (() => new Date());
     this.#runner = new PostgresBehavioralTransactionRunner(
@@ -972,10 +980,9 @@ export class PostgresBehavioralStoreBackend implements BehavioralStoreBinder {
     return new PostgresBehavioralWriteView(immutable, this.#runner, this.#target);
   }
 
-  async close(): Promise<void> {
-    if (this.#closed) return;
+  close(): Promise<void> {
     this.#closed = true;
-    if (this.#ownsPool) await this.#pool.end();
+    return this.#ownsPool ? this.#closeOwnedPool!() : Promise.resolve();
   }
 }
 
