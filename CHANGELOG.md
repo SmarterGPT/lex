@@ -1,5 +1,16 @@
 # Changelog
 
+## 4.4.5
+
+### Patch Changes
+
+- Require glob ^14.0.3, minimatch ^11.0.3 and Zod ^4.6.6; refresh
+  follow-redirects 1.16.2, body-parser 2.4.0 and qs 6.16.1 in the lock. Retain
+  Node >=24, SQLite exactly 13.0.3 and Express major 5. No public API or store
+  migration is intended. Existing consumer locks need deliberate transitive
+  refresh and qualification. See the [security release notes](docs/releases/lex-4.4.5-security.md)
+  and [migration and recovery guide](docs/releases/lex-4.4-migration.md).
+
 ## 4.4.4
 
 ### Patch Changes

@@ -1,6 +1,6 @@
 # Lex 4.4 migration and recovery
 
-Node 24 or newer remains required. Use the exact verified Lex/Lex-MCP 4.4.4 pair
+Node 24 or newer remains required. Use the exact verified Lex/Lex-MCP 4.4.5 pair
 after publication. This release introduces no store/schema migration. Preserve
 existing data, credentials, bindings and runtime locks.
 
@@ -28,16 +28,16 @@ On artifact, database identity or authority mismatch, stop and retain the eviden
 do not recreate stores, rewrite public versions or silently downgrade authority.
 
 The deprecated transport still returns `LEX_MCP_LEGACY_ENTRYPOINT_REMOVED`.
-Use `@smartergpt/lex-mcp@4.4.4` only after the exact pair is verified; preserve explicit
+Use `@smartergpt/lex-mcp@4.4.5` only after the exact pair is verified; preserve explicit
 `LEX_POSTGRES_PASSWORD` forwarding from the host's existing secret source. Do not
 print credentials. See the [4.3 recovery matrix](lex-4.3-migration.md) for unchanged
 partial-publication and consumer-failure procedures.
 
-The exact core package is `@smartergpt/lex@4.4.4`. An explicitly qualified host may use:
+The exact core package is `@smartergpt/lex@4.4.5`. An explicitly qualified host may use:
 
 ```toml
 command = "npx"
-args = ["--yes", "@smartergpt/lex-mcp@4.4.4"]
+args = ["--yes", "@smartergpt/lex-mcp@4.4.5"]
 env_vars = ["LEX_POSTGRES_PASSWORD"]
 ```
 
@@ -56,7 +56,7 @@ signing prompts remain with the signer. Do not substitute a local token or repac
 | SCRAM says the password must be a string                                            | Check explicit `LEX_POSTGRES_PASSWORD` forwarding without printing it. Preserve the selected store and authentication.             |
 | Workspace, branch, or credential-free store identity is unexpected                  | Stop store access and reconcile identity before mutation.                                                                          |
 | Quarantined legacy Frames exist                                                     | Use the existing explicit inspect/plan/apply workflow from the 4.0 guide. Installation grants no repair permission.                |
-| A dependent lock still resolves Lex 3.0.1 or another version                        | Refresh it from exact verified public Lex 4.4.4 bytes; reject directory links or mismatched integrity as release evidence.         |
+| A dependent lock still resolves Lex 3.0.1 or another version                        | Refresh it from exact verified public Lex 4.4.5 bytes; reject directory links or mismatched integrity as release evidence.         |
 | Lex is public but its tag, Lex-MCP, GitHub release, or Registry entry is incomplete | Preserve the verified immutable artifact and finish stages in dependency order. Never replace public bytes under the same version. |
 | Native Windows or another downstream packed consumer fails                          | Stop publication or sealing at that stage and retain the failing command and exact artifact identity.                              |
 
@@ -92,3 +92,10 @@ See [4.4.4 release notes](lex-4.4.4.md) and the
 [4.4.3 notes](lex-4.4.3.md) retain the original destination and native-driver changes.
 An unverified injected Pool still has a per-instance diagnostic reference; only
 explicit trusted host verification supports a stable destination restriction.
+
+## Security dependency refresh in 4.4.5
+
+Follow the [4.4.5 security upgrade and recovery notes](lex-4.4.5-security.md).
+Preserve existing locks and runtimes until qualification passes; existing consumer
+locks need an explicit reviewed transitive refresh and production audit. Package
+metadata alone does not update a running host. No store migration is introduced.
