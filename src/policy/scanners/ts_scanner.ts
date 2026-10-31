@@ -112,8 +112,9 @@ class TypeScriptScanner {
 
   async scan(): Promise<ScannerOutput> {
     // Find all .ts and .tsx files (excluding node_modules, .d.ts)
-    const pattern = `${this.rootDir}/**/*.{ts,tsx}`;
-    const files = await glob(pattern, {
+    const files = await glob("**/*.{ts,tsx}", {
+      cwd: this.rootDir,
+      absolute: true,
       ignore: ["**/node_modules/**", "**/*.d.ts"],
     });
 

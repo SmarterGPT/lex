@@ -58,3 +58,15 @@ consumer evidence. Require independent exact-head review and required CI. Publis
 only through the protected release workflow at its reviewed current-main source;
 no local npm publish, tag, activation, or helper installation is authorized by
 this source preparation. Held Runner and LexSona release PRs remain separate.
+
+## Windows scanner root routing
+
+The TypeScript scanner now supplies its literal root through glob's cwd option
+and requests absolute results, while retaining its relative TS/TSX pattern and
+existing node_modules/declaration exclusions. Windows root separators and literal
+glob characters no longer become pattern syntax. Compatibility qualification
+exposed the original UNC interpolation failure with both old glob 13 and new glob
+14; it is an existing routing bug, not a proved regression from the major update.
+Owned local Windows roots qualify spaces and brackets/braces. Synthetic UNC
+filesystem mapping is lexical evidence only, not real SMB or remote-share
+qualification. No store, authority or containment contract changes.

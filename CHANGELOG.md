@@ -4,6 +4,10 @@
 
 ### Patch Changes
 
+- Pass the TypeScript scanner root literally through cwd, retaining absolute
+  discovery results and existing exclusions. Correct Windows root separator and
+  metacharacter handling without changing store or authority contracts.
+
 - Require glob ^14.0.3, minimatch ^11.0.3 and Zod ^4.6.6; refresh
   follow-redirects 1.16.2, body-parser 2.4.0 and qs 6.16.1 in the lock. Retain
   Node >=24, SQLite exactly 13.0.3 and Express major 5. No public API or store

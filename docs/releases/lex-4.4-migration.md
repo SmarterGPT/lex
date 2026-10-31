@@ -99,3 +99,8 @@ Follow the [4.4.5 security upgrade and recovery notes](lex-4.4.5-security.md).
 Preserve existing locks and runtimes until qualification passes; existing consumer
 locks need an explicit reviewed transitive refresh and production audit. Package
 metadata alone does not update a running host. No store migration is introduced.
+
+The TypeScript scanner passes its root as a literal cwd instead of interpolating
+Windows separators or root metacharacters into its glob pattern. Existing TS/TSX
+selection and declaration/node_modules exclusions remain. Owned local Windows
+fixtures and lexical synthetic UNC mapping do not establish real SMB support.
