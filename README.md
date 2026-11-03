@@ -302,9 +302,12 @@ rather than reconstructing them from ambient environment variables.
 
 ## Project status
 
-**Current Version:** `4.4.4`
+**Current Version:** `4.4.5`
 
-Lex 4.4.4 corrects Windows root comparison in trusted workspace destination preflight and
+Lex 4.4.5 updates security dependency floors and retained resolutions. See the
+[4.4.5 security and recovery notes](./docs/releases/lex-4.4.5-security.md), including
+the required explicit refresh of existing consumer locks. No store migration is
+introduced. The earlier Lex 4.4.4 patch corrects Windows root comparison in trusted workspace destination preflight and
 save receipts. See the [4.4.4 release notes](./docs/releases/lex-4.4.4.md), the
 [4.4 release notes](./docs/releases/lex-4.4.md) and
 [migration guide](./docs/releases/lex-4.4-migration.md). Candidate metadata is not

@@ -1,7 +1,7 @@
 # Lex package release checklist
 
 This is the release checklist for `@smartergpt/lex`. The current coordinated release is
-**Lex 4.4.4 in the Ecosystem 3.1 train**.
+**Lex 4.4.5 in the Ecosystem 3.1 train**.
 
 Use these documents as the release authority:
 
@@ -50,21 +50,23 @@ SQLite behavior and scoped tenant/workspace containment.
 
 ## Candidate identity
 
-The 4.4.4 forward patch corrects Windows root comparison in trusted workspace
-destination snapshots. Registry roots and discovered roots can differ in case while
-naming the same Windows path; 4.4.3's raw equality rejected that active binding.
-Trusted captured execution-surface evidence now governs lexical comparison and
-stable root identity. Tenant, workspace, backend, binding, authority and
-expected-destination checks remain in force. This backward-compatible patch needs
-no store/schema migration. Re-inspect an expected destination after upgrading; do
-not silently accept an old hash or bypass a mismatch. See
-[4.4.4 release and recovery notes](docs/releases/lex-4.4.4.md).
+The 4.4.5 security patch raises glob, minimatch and Zod dependency floors and
+refreshes the affected HTTP/redirect transitive lock nodes. The proposed patch
+SemVer decision retains public APIs and store formats, Node >=24 and SQLite
+exactly 13.0.3. See [4.4.5 security and recovery notes](docs/releases/lex-4.4.5-security.md)
+for the exact advisories, compatibility gates, and explicit existing-lock refresh.
+A private lock does not impose new transitive minima on downstream consumers.
+The candidate also repairs failed-connect cleanup for internally owned PostgreSQL
+pools. Close retains pending/failure disposition while observing registered
+cleanup; caller pools, auth/schema/scope contracts and normal pool capacity stay
+unchanged. Fresh exact packed credential and terminal acceptance is required.
 
-The public 4.4.3 package is immutable and its release notes remain historical evidence.
-Do not retag, replace or republish it to repair the Windows failure. Retain each host's
-last qualified installed runtime and lock until the exact 4.4.4 pair passes native
-Windows destination preflight and save/read qualification. Candidate metadata and
-packed-consumer success alone do not prove that installed host path.
+The prior Windows destination correction remains in force, including trusted
+execution-surface evidence, tenant/workspace/backend/binding authority and
+expected-destination checks. Retain each host's last qualified runtime and lock
+until the exact new pair passes native destination preflight and save/read
+qualification. Candidate metadata and packed-consumer success do not prove an
+installed host path.
 
 Version 4.4.0 adds the narrow public `@smartergpt/lex/context` surface and fixes
 canonical/deprecated MCP help names (#852). The new public API requires a minor
@@ -74,13 +76,13 @@ package pair remains the release recovery baseline. This release does not activa
 a scoped host or alter the installed-runtime verification boundary. Consumer
 adoption and end-to-end startup qualification remain part of #854 follow-through.
 
-For Lex 4.4.4, these values must agree:
+For Lex 4.4.5, these values must agree:
 
-- `package.json` and the package-lock root: `@smartergpt/lex@4.4.4`;
-- `server.json`: `dev.smartergpt/lex@4.4.4`, transporting
-  `@smartergpt/lex-mcp@4.4.4`;
-- Ecosystem 3.1 manifest Lex and Lex-MCP targets: `4.4.4`;
-- README and changelog current release: `4.4.4`;
+- `package.json` and the package-lock root: `@smartergpt/lex@4.4.5`;
+- `server.json`: `dev.smartergpt/lex@4.4.5`, transporting
+  `@smartergpt/lex-mcp@4.4.5`;
+- Ecosystem 3.1 manifest Lex and Lex-MCP targets: `4.4.5`;
+- README and changelog current release: `4.4.5`;
 - Node engine: exactly `>=24`, with no speculative upper bound.
 
 Run:
@@ -92,7 +94,7 @@ npm run check:mcp-registry-contract
 npm run validate-docs
 ```
 
-`npm run check:release-drift` is a post-tag audit. It is expected to report the missing `v4.4.4`
+`npm run check:release-drift` is a post-tag audit. It is expected to report the missing `v4.4.5`
 tag while an untagged candidate is under review.
 
 ## Candidate gates
@@ -159,12 +161,12 @@ publication authority. A build-only dispatch keeps `publish: false`.
 
 After both npm packages are public, the tag-triggered GitHub release lane additionally verifies the
 annotated tag object and embedded name, authorized tag and commit signer fingerprints, current
-remote main, exact public npm integrity, and the public Lex-MCP 4.4.4 dependency edge. Release tags
+remote main, exact public npm integrity, and the public Lex-MCP 4.4.5 dependency edge. Release tags
 are protected against update and deletion by the active repository tag ruleset. The lane has no npm
 publication authority.
 
-The workflow publishes the exact retained `smartergpt-lex-4.4.4.tgz` with provenance. It never
-repacks, and recovery continues only when an existing public 4.4.4 integrity exactly equals the
+The workflow publishes the exact retained `smartergpt-lex-4.4.5.tgz` with provenance. It never
+repacks, and recovery continues only when an existing public 4.4.5 integrity exactly equals the
 receipt and npm's verified SLSA attestation binds it to this repository, the protected
 `release.yml` dispatch, current `main`, and the exact reviewed commit. Different immutable bytes or
 missing/mismatched provenance are hard failures requiring a new version and a fresh review.
@@ -175,7 +177,7 @@ Verify the immutable public artifact:
 
 ```powershell
 $receipt = Get-Content ./release-candidate.json -Raw | ConvertFrom-Json
-$public = npm view @smartergpt/lex@4.4.4 version engines dist.integrity --json |
+$public = npm view @smartergpt/lex@4.4.5 version engines dist.integrity --json |
   ConvertFrom-Json
 if ($public.dist.integrity -ne $receipt.artifact.integrity) {
   throw "Published npm integrity does not match the attested candidate"
@@ -189,12 +191,12 @@ successful publish exit code as the sole identity proof.
 
 After Lex is public:
 
-1. refresh and verify each dependent lock from public `@smartergpt/lex@4.4.4`;
+1. refresh and verify each dependent lock from public `@smartergpt/lex@4.4.5`;
 2. complete the manifest-selected LexSona, LexRunner, AXF, and STFC-Mod proofs;
-3. publish exact `@smartergpt/lex-mcp@4.4.4` from its own reviewed checkout;
+3. publish exact `@smartergpt/lex-mcp@4.4.5` from its own reviewed checkout;
 4. verify both public npm artifacts and their exact dependency edge;
-5. create, verify, and push the signed Lex `v4.4.4` tag;
-6. create, verify, and push the signed Lex-MCP `v4.4.4` tag;
+5. create, verify, and push the signed Lex `v4.4.5` tag;
+6. create, verify, and push the signed Lex-MCP `v4.4.5` tag;
 7. verify both non-draft GitHub releases;
 8. approve and verify the protected MCP Registry publication; and
 9. rerun native downstream acceptance before sealing the manifest.

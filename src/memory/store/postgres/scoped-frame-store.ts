@@ -1,5 +1,6 @@
+import { createOwnedPostgresPool } from "./owned-pool.js";
 import { createHash, randomUUID } from "node:crypto";
-import { Pool, type PoolClient, type QueryResultRow } from "pg";
+import type { Pool, PoolClient, QueryResultRow } from "pg";
 import type { Frame, FrameSpendMetadata, FrameStatusSnapshot } from "../../frames/types.js";
 import { Frame as FrameSchema } from "../../frames/types.js";
 import type { AuthorizedScopeV1, CapabilityId } from "../../../shared/runtime-scope/index.js";
@@ -546,6 +547,7 @@ class ScopedTransactionRunner {
 interface BackendResources {
   readonly pool: Pool;
   readonly ownsPool: boolean;
+  readonly closeOwnedPool?: () => Promise<void>;
   readonly metadata: FrameStoreMetadata;
 }
 
@@ -571,14 +573,16 @@ function createResources(
     };
   }
   const parsed = parsePostgresLocation(connection);
+  const owner = createOwnedPostgresPool({
+    connectionString: parsed.connectionString,
+    application_name: applicationName,
+    allowExitOnIdle: true,
+    idleTimeoutMillis: 30_000,
+    connectionTimeoutMillis: 5_000,
+  });
   return {
-    pool: new Pool({
-      connectionString: parsed.connectionString,
-      application_name: applicationName,
-      allowExitOnIdle: true,
-      idleTimeoutMillis: 30_000,
-      connectionTimeoutMillis: 5_000,
-    }),
+    pool: owner.pool,
+    closeOwnedPool: owner.close,
     ownsPool: true,
     metadata: {
       ...metadataFor(parsed.location, schema),
@@ -1009,10 +1013,9 @@ export class PostgresScopedFrameStoreBackend implements ScopedFrameStoreBinder {
     );
   }
 
-  async close(): Promise<void> {
-    if (this.closed) return;
+  close(): Promise<void> {
     this.closed = true;
-    if (this.resources.ownsPool) await this.resources.pool.end();
+    return this.resources.ownsPool ? this.resources.closeOwnedPool!() : Promise.resolve();
   }
 }
 
@@ -1154,10 +1157,9 @@ export class PostgresFrameStoreAdministration implements FrameStoreAdminBinder {
     );
   }
 
-  async close(): Promise<void> {
-    if (this.closed) return;
+  close(): Promise<void> {
     this.closed = true;
-    if (this.resources.ownsPool) await this.resources.pool.end();
+    return this.resources.ownsPool ? this.resources.closeOwnedPool!() : Promise.resolve();
   }
 
   private assertOpen(): void {
